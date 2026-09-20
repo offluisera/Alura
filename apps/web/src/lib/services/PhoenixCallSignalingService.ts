@@ -114,7 +114,8 @@ export class PhoenixCallSignalingService {
             if (waiter) {
               clearTimeout(waiter.timer)
               this.joinWaiters.delete(ref)
-              waiter.reject(new Error(`Phoenix recusou join: ${topic}`))
+              const reason = payload?.response?.reason || payload?.reason || 'unknown'
+                waiter.reject(new Error(`Phoenix recusou join: ${topic} (${reason})`))
             }
           }
         } catch {}
