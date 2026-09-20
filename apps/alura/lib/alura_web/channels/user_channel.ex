@@ -11,8 +11,17 @@ defmodule AluraWeb.UserChannel do
   end
 
   @impl true
-  def handle_in("signal", payload, socket) do
-    push(socket, "signal", payload)
+  def handle_in("signal", %{"to_user_id" => to_user_id} = payload, socket)
+      when is_binary(to_user_id) do
+    signal =
+      payload
+      |> Map.put("from_user_id", socket.assigns.user_id)
+
+    AluraWeb.Endpoint.broadcast!("user:#{to_user_id}", "signal", signal)
     {:reply, :ok, socket}
+  end
+
+  def handle_in("signal", _payload, socket) do
+    {:reply, {:error, %{reason: "invalid_signal"}}, socket}
   end
 end
