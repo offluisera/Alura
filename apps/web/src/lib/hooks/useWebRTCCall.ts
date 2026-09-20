@@ -368,7 +368,10 @@ export function useWebRTCCall(
       setIsCameraOn(type === 'video')
       return finalStream
     } catch (err) {
-      console.warn('[WebRTC] Fallback para constraints básicas de áudio:', err)
+      console.warn('[WebRTC] Falha na captura de mídia:', {
+        name: (err as Error)?.name,
+        message: (err as Error)?.message,
+      }, err)
       const fallbackStream = await navigator.mediaDevices.getUserMedia({
         audio: true,
         video: type === 'video',
@@ -414,7 +417,14 @@ export function useWebRTCCall(
         callerAvatar: myProfile?.avatar || null,
       })
     } catch (err) {
-      console.error('[WebRTC] Erro ao iniciar chamada:', err)
+      const error = err as Error
+      console.error('[WebRTC] Erro ao iniciar chamada:', {
+        name: error?.name,
+        message: error?.message,
+        stack: error?.stack,
+        callId: newCallId,
+        toUserId,
+      }, err)
       cleanup()
       setCallState('idle')
     }
