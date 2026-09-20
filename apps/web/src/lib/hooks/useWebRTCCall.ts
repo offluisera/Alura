@@ -405,7 +405,7 @@ export function useWebRTCCall(
 
       stream.getTracks().forEach((track) => pc.addTrack(track, stream))
 
-      signalingRef.current.listen(newCallId, handleSignal)
+      await signalingRef.current.listen(newCallId, handleSignal)
 
       const offer = await pc.createOffer()
       await pc.setLocalDescription(offer)
@@ -447,7 +447,7 @@ export function useWebRTCCall(
 
       stream.getTracks().forEach((track) => pc.addTrack(track, stream))
 
-      signalingRef.current.listen(signal.call_id, handleSignal)
+      await signalingRef.current.listen(signal.call_id, handleSignal)
 
       const remoteDesc = new RTCSessionDescription(signal.payload.sdp as RTCSessionDescriptionInit)
       await pc.setRemoteDescription(remoteDesc)
