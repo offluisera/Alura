@@ -9,6 +9,66 @@ import { SpotifyService } from "../../lib/services/SpotifyService"
 import { useNotification } from "../../contexts/NotificationContext"
 import { CallProvider } from "../../contexts/CallContext"
 import { FloatingIncomingCallBar } from "../../components/call/FloatingIncomingCallBar"
+import { CallOverlay } from "../../components/call/CallOverlay"
+import { useCall } from "../../contexts/CallContext"
+
+function CallOverlayMount({ user, profile }: { user: any; profile: any }) {
+  const {
+    callState,
+    callType,
+    localStream,
+    remoteStream,
+    screenStream,
+    isMuted,
+    isDeafened,
+    isCameraOn,
+    isSharingScreen,
+    isRemoteSharingScreen,
+    callDuration,
+    remoteParticipant,
+    noiseFilter,
+    setNoiseFilter,
+    hangUp,
+    toggleMute,
+    toggleDeafen,
+    toggleCamera,
+    startScreenShareWithSource,
+    stopScreenShare,
+    acceptIncomingCall,
+    rejectIncomingCall,
+  } = useCall()
+
+  if (callState === "idle" || callState === "ended") return null
+
+  return (
+    <CallOverlay
+      callState={callState}
+      callType={callType}
+      localStream={localStream}
+      remoteStream={remoteStream}
+      screenStream={screenStream}
+      isMuted={isMuted}
+      isDeafened={isDeafened}
+      isCameraOn={isCameraOn}
+      isSharingScreen={isSharingScreen}
+      isRemoteSharingScreen={isRemoteSharingScreen}
+      callDuration={callDuration}
+      remoteParticipant={remoteParticipant}
+      myName={profile?.username || profile?.display_name || user?.user_metadata?.username || "Você"}
+      myAvatar={profile?.avatar_url || user?.user_metadata?.avatar_url}
+      noiseFilter={noiseFilter}
+      setNoiseFilter={setNoiseFilter}
+      hangUp={hangUp}
+      toggleMute={toggleMute}
+      toggleDeafen={toggleDeafen}
+      toggleCamera={toggleCamera}
+      startScreenShareWithSource={startScreenShareWithSource}
+      stopScreenShare={stopScreenShare}
+      acceptCall={acceptIncomingCall}
+      rejectCall={rejectIncomingCall}
+    />
+  )
+}
 
 export function Dashboard() {
   const navigate = useNavigate()
@@ -125,6 +185,7 @@ export function Dashboard() {
           <Outlet context={{ user, profile }} />
         </div>
         <FloatingIncomingCallBar />
+        <CallOverlayMount user={user} profile={profile} />
       </div>
     </CallProvider>
   )
