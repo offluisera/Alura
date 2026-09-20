@@ -24,7 +24,7 @@ export class PhoenixCallSignalingService {
   private ref = 0
   private heartbeat: ReturnType<typeof setInterval> | null = null
   private joined = new Set<string>()
-  private joinWaiters = new Map<string, { ref: string; resolve: () => void; reject: (e: Error) => void; timer: ReturnType<typeof setTimeout> }>()
+  private joinWaiters = new Map<string, { topic: string; promise: Promise<void>; resolve: () => void; reject: (e: Error) => void; timer: ReturnType<typeof setTimeout> }>()
   private roomHandlers = new Map<string, Handler>()
   private incomingHandler: Handler | null = null
 
@@ -123,8 +123,10 @@ export class PhoenixCallSignalingService {
     await this.connect()
     if (this.joined.has(topic)) return
 
-    for (const waiter of this.joinWaiters.values()) {
-      if (waiter.ref === topic) return
+    const pending = Array.from(this.joinWaiters.values()).find((waiter) => waiter.topic === topic)
+    if (pending) {
+      await pending.promise
+      return
     }
 
     if (!this.socket || this.socket.readyState !== WebSocket.OPEN) {
@@ -132,15 +134,20 @@ export class PhoenixCallSignalingService {
     }
 
     const ref = this.nextRef()
-    await new Promise<void>((resolve, reject) => {
-      const timer = setTimeout(() => {
-        this.joinWaiters.delete(ref)
-        reject(new Error(`Timeout Phoenix join: ${topic}`))
-      }, 8000)
-
-      this.joinWaiters.set(ref, { ref: topic, resolve, reject, timer })
-      this.socket!.send(JSON.stringify([ref, ref, topic, 'phx_join', {}]))
+    let resolveJoin!: () => void
+    let rejectJoin!: (e: Error) => void
+    const promise = new Promise<void>((resolve, reject) => {
+      resolveJoin = resolve
+      rejectJoin = reject
     })
+    const timer = setTimeout(() => {
+      this.joinWaiters.delete(ref)
+      rejectJoin(new Error(`Timeout Phoenix join: ${topic}`))
+    }, 8000)
+
+    this.joinWaiters.set(ref, { topic, promise, resolve: resolveJoin, reject: rejectJoin, timer })
+    this.socket!.send(JSON.stringify([ref, ref, topic, 'phx_join', {}]))
+    await promise
   }
 
   private async push(topic: string, event: string, payload: unknown) {
@@ -166,16 +173,16 @@ export class PhoenixCallSignalingService {
     }
   }
 
-  listen(callId: string, onSignal: Handler) {
+  async listen(callId: string, onSignal: Handler) {
     this.roomHandlers.set(callId, onSignal)
-    this.join(`call:${callId}`).catch((err) => console.error('[PhoenixCall] join:', err))
+    await this.join(`call:${callId}`)
   }
 
-  listenForIncomingCalls(onOffer: Handler) {
+  async listenForIncomingCalls(onOffer: Handler) {
     this.incomingHandler = (signal) => {
       if (signal.type === 'offer') onOffer(signal)
     }
-    this.join(`user:${this.myUserId}`).catch((err) => console.error('[PhoenixCall] incoming:', err))
+    await this.join(`user:${this.myUserId}`)
   }
 
   unlisten() {
