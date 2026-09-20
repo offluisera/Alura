@@ -175,7 +175,9 @@ export class PhoenixCallSignalingService {
       created_at: new Date().toISOString(),
     }
     if (type === 'offer') {
-      await this.push(`user:${toUserId}`, 'signal', signal)
+      // O UserChannel só pode ser ingressado pelo próprio usuário.
+      // O backend encaminha o sinal para o canal do destinatário.
+      await this.push(`user:${this.myUserId}`, 'signal', signal)
     } else {
       await this.push(`call:${callId}`, 'signal', signal)
     }
