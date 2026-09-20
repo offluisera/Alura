@@ -24,7 +24,7 @@ export class PhoenixCallSignalingService {
   private ref = 0
   private heartbeat: ReturnType<typeof setInterval> | null = null
   private joined = new Set<string>()
-  private joinWaiters = new Map<string, Promise<void>>()
+  private joinWaiters = new Map<string, { ref: string; resolve: () => void; reject: (e: Error) => void; timer: ReturnType<typeof setTimeout> }>()
   private roomHandlers = new Map<string, Handler>()
   private incomingHandler: Handler | null = null
 
@@ -32,7 +32,9 @@ export class PhoenixCallSignalingService {
     this.myUserId = userId
   }
 
-  private nextRef() { return String(++this.ref) }
+  private nextRef() {
+    return String(++this.ref)
+  }
 
   private async connect() {
     if (this.socket?.readyState === WebSocket.OPEN) return
@@ -49,7 +51,10 @@ export class PhoenixCallSignalingService {
     await new Promise<void>((resolve, reject) => {
       const ws = new WebSocket(url.toString())
       this.socket = ws
-      const timeout = setTimeout(() => reject(new Error('Timeout Phoenix WebSocket')), 8000)
+      const timeout = setTimeout(() => {
+        ws.close()
+        reject(new Error('Timeout Phoenix WebSocket'))
+      }, 8000)
 
       ws.onopen = () => {
         clearTimeout(timeout)
@@ -71,78 +76,71 @@ export class PhoenixCallSignalingService {
         this.heartbeat = null
         this.socket = null
         this.joined.clear()
+        for (const waiter of this.joinWaiters.values()) {
+          clearTimeout(waiter.timer)
+          waiter.reject(new Error('Phoenix WebSocket desconectado'))
+        }
+        this.joinWaiters.clear()
       }
 
       ws.onmessage = (event) => {
-        try { this.handleMessage(JSON.parse(event.data)) } catch {}
+        try {
+          const [joinRef, ref, topic, eventName, payload] = JSON.parse(event.data)
+          if (eventName === 'signal' && payload) {
+            const signal = payload as PhoenixCallSignal
+            if (signal.from_user_id === this.myUserId) return
+            if (topic === `user:${this.myUserId}`) {
+              this.roomHandlers.get(signal.call_id)?.(signal) || this.incomingHandler?.(signal)
+            } else if (topic.startsWith('call:')) {
+              this.roomHandlers.get(topic.slice(5))?.(signal)
+            }
+          }
+
+          if (eventName === 'phx_reply' && payload?.status === 'ok' && joinRef) {
+            const waiter = this.joinWaiters.get(ref)
+            if (waiter) {
+              clearTimeout(waiter.timer)
+              this.joined.add(topic)
+              this.joinWaiters.delete(ref)
+              waiter.resolve()
+            }
+          }
+
+          if (eventName === 'phx_reply' && payload?.status !== 'ok' && ref) {
+            const waiter = this.joinWaiters.get(ref)
+            if (waiter) {
+              clearTimeout(waiter.timer)
+              this.joinWaiters.delete(ref)
+              waiter.reject(new Error(`Phoenix recusou join: ${topic}`))
+            }
+          }
+        } catch {}
       }
     })
-  }
-
-  private handleMessage(frame: unknown[]) {
-    const [, , topic, event, payload] = frame as any[]
-
-    if (event === 'signal' && payload) {
-      const signal = payload as PhoenixCallSignal
-      if (signal.from_user_id === this.myUserId) return
-
-      if (topic === `user:${this.myUserId}`) {
-        const activeHandler = this.roomHandlers.get(signal.call_id)
-        if (activeHandler) activeHandler(signal)
-        else this.incomingHandler?.(signal)
-      } else if (topic.startsWith('call:')) {
-        this.roomHandlers.get(topic.slice(5))?.(signal)
-      }
-    }
-
-    if (event === 'phx_reply' && payload?.status === 'ok' && topic) {
-      this.joined.add(topic)
-    }
   }
 
   private async join(topic: string) {
     await this.connect()
     if (this.joined.has(topic)) return
-    const existing = this.joinWaiters.get(topic)
-    if (existing) return existing
 
-    const promise = new Promise<void>((resolve, reject) => {
-      if (!this.socket || this.socket.readyState !== WebSocket.OPEN) {
-        reject(new Error('Phoenix WebSocket desconectado'))
-        return
-      }
+    for (const waiter of this.joinWaiters.values()) {
+      if (waiter.ref === topic) return
+    }
 
-      const ref = this.nextRef()
-      const timer = setTimeout(() => reject(new Error(`Timeout Phoenix join: ${topic}`)), 8000)
+    if (!this.socket || this.socket.readyState !== WebSocket.OPEN) {
+      throw new Error('Phoenix WebSocket desconectado')
+    }
 
-      const previous = this.socket.onmessage
-      this.socket.onmessage = (event) => {
-        previous?.call(this.socket, event)
-        try {
-          const frame = JSON.parse(event.data)
-          const [, responseRef, responseTopic, responseEvent, responsePayload] = frame
-          if (
-            responseEvent === 'phx_reply' &&
-            responseRef === ref &&
-            responseTopic === topic
-          ) {
-            clearTimeout(timer)
-            this.socket!.onmessage = previous
-            if (responsePayload?.status === 'ok') {
-              this.joined.add(topic)
-              resolve()
-            } else {
-              reject(new Error(`Phoenix recusou join: ${topic}`))
-            }
-          }
-        } catch {}
-      }
+    const ref = this.nextRef()
+    await new Promise<void>((resolve, reject) => {
+      const timer = setTimeout(() => {
+        this.joinWaiters.delete(ref)
+        reject(new Error(`Timeout Phoenix join: ${topic}`))
+      }, 8000)
 
-      this.socket.send(JSON.stringify([ref, ref, topic, 'phx_join', {}]))
+      this.joinWaiters.set(ref, { ref: topic, resolve, reject, timer })
+      this.socket!.send(JSON.stringify([ref, ref, topic, 'phx_join', {}]))
     })
-
-    this.joinWaiters.set(topic, promise)
-    try { await promise } finally { this.joinWaiters.delete(topic) }
   }
 
   private async push(topic: string, event: string, payload: unknown) {
@@ -161,7 +159,6 @@ export class PhoenixCallSignalingService {
       payload,
       created_at: new Date().toISOString(),
     }
-
     if (type === 'offer') {
       await this.push(`user:${toUserId}`, 'signal', signal)
     } else {
@@ -189,6 +186,7 @@ export class PhoenixCallSignalingService {
     this.unlisten()
     this.incomingHandler = null
     this.joined.clear()
+    this.joinWaiters.clear()
     if (this.heartbeat) clearInterval(this.heartbeat)
     this.heartbeat = null
     this.socket?.close()
