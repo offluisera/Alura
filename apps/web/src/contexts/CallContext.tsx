@@ -2,7 +2,7 @@ import React, { createContext, useContext, useState, useEffect, useRef, useCallb
 import { supabase } from '../lib/supabase'
 import { useWebRTCCall } from '../lib/hooks/useWebRTCCall'
 import type { UseWebRTCCallReturn, CallParticipant, CallType } from '../lib/hooks/useWebRTCCall'
-import type { CallSignal } from '../lib/services/CallSignalingService'
+import type { PhoenixCallSignal as CallSignal } from '../lib/services/PhoenixCallSignalingService'
 
 interface CallContextType extends UseWebRTCCallReturn {
   activeDmUserId: string | null
