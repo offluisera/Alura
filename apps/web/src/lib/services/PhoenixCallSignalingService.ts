@@ -87,7 +87,9 @@ export class PhoenixCallSignalingService {
       if (signal.from_user_id === this.myUserId) return
 
       if (topic === `user:${this.myUserId}`) {
-        this.incomingHandler?.(signal)
+        const activeHandler = this.roomHandlers.get(signal.call_id)
+        if (activeHandler) activeHandler(signal)
+        else this.incomingHandler?.(signal)
       } else if (topic.startsWith('call:')) {
         this.roomHandlers.get(topic.slice(5))?.(signal)
       }
