@@ -20,6 +20,7 @@ const WS_URL = import.meta.env.VITE_PHOENIX_WS_URL || 'wss://ws.alura.net.br/soc
 
 export class PhoenixCallSignalingService {
   private socket: WebSocket | null = null
+  private connectPromise: Promise<void> | null = null
   private myUserId: string
   private ref = 0
   private heartbeat: ReturnType<typeof setInterval> | null = null
@@ -38,7 +39,9 @@ export class PhoenixCallSignalingService {
 
   private async connect() {
     if (this.socket?.readyState === WebSocket.OPEN) return
+    if (this.connectPromise) return this.connectPromise
 
+    this.connectPromise = (async () => {
     const { data } = await supabase.auth.getSession()
     const token = data.session?.access_token
     if (!token) throw new Error('Sessão Supabase ausente')
@@ -117,6 +120,11 @@ export class PhoenixCallSignalingService {
         } catch {}
       }
     })
+    })().finally(() => {
+      this.connectPromise = null
+    })
+
+    return this.connectPromise
   }
 
   private async join(topic: string) {
