@@ -418,13 +418,10 @@ export function useWebRTCCall(
       })
     } catch (err) {
       const error = err as Error
-      console.error('[WebRTC] Erro ao iniciar chamada:', {
-        name: error?.name,
-        message: error?.message,
-        stack: error?.stack,
-        callId: newCallId,
-        toUserId,
-      }, err)
+      console.error(
+        `[WebRTC] Erro ao iniciar chamada: ${error?.name || 'Error'}: ${error?.message || String(err)} | callId=${newCallId} | toUserId=${toUserId}`,
+        err
+      )
       cleanup()
       setCallState('idle')
     }
