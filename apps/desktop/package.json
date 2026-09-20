@@ -8,7 +8,8 @@
     "prestart": "node -e \"const fs = require('fs'); fs.rmSync('./ui', {recursive: true, force: true}); fs.cpSync('../web/dist', './ui', {recursive: true});\"",
     "start": "electron .",
     "build": "electron-builder --win --x64",
-    "build:portable": "node build-portable.js"
+    "build:portable": "node build-portable.js",
+    "prebuild": "node -e \"const fs = require('fs'); fs.rmSync('./ui', {recursive: true, force: true}); fs.cpSync('../web/dist', './ui', {recursive: true});\""
   },
   "build": {
     "appId": "com.alura.app",
@@ -22,9 +23,12 @@
     },
     "files": [
       "main.js",
+      "preload.js",
+      "preload-call.js",
+      "incoming-call.html",
       "notification.html",
       "icon.png",
-      "../web/dist/**/*"
+      "ui/**/*"
     ]
   },
   "devDependencies": {
