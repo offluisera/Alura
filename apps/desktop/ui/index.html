@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="./favicon.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Alura</title>
+    <script>
+      (function() {
+        try {
+          var theme = localStorage.getItem('alura_theme') || 'forest';
+          document.documentElement.setAttribute('data-theme', theme);
+          var density = localStorage.getItem('alura_chat_density') || 'comfortable';
+          document.documentElement.setAttribute('data-density', density);
+          var motion = localStorage.getItem('alura_reduced_motion');
+          if (motion === 'true') {
+            document.documentElement.setAttribute('data-reduced-motion', 'true');
+          }
+        } catch (e) {}
+      })();
+    </script>
+    <script type="module" crossorigin src="./assets/index-wDJmnRJJ.js"></script>
+    <link rel="stylesheet" crossorigin href="./assets/index-DDYEOhi-.css">
+  </head>
+  <body>
+    <div id="root"></div>
+  </body>
+</html>

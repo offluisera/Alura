@@ -1,0 +1,93 @@
+import { useEffect, useState } from "react"
+import { useNavigate, Outlet } from "react-router-dom"
+import { supabase } from "../../lib/supabase"
+import { Sidebar } from "../../components/layout/Sidebar"
+import { Topbar } from "../../components/layout/Topbar"
+import { OnboardingWizard } from "../onboarding/OnboardingWizard"
+import { GlobalRealtimeListener } from "../../components/shared/GlobalRealtimeListener"
+
+export function Dashboard() {
+  const navigate = useNavigate()
+  const [user, setUser] = useState<any>(null)
+  const [profile, setProfile] = useState<any>(null)
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    const init = async () => {
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session) {
+        navigate("/login")
+        return
+      }
+
+      setUser(session.user)
+
+      const { data: profileData, error } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', session.user.id)
+        .single()
+      
+      if (profileData) {
+        setProfile(profileData)
+      }
+      setLoading(false)
+    }
+
+    init()
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (!session) {
+        navigate("/login")
+      } else {
+        setUser(session.user)
+      }
+    })
+
+    return () => {
+      subscription.unsubscribe()
+    }
+  }, [navigate])
+
+  // Escuta mudanças no próprio perfil para manter UI atualizada
+  useEffect(() => {
+    if (!user) return
+    const channel = supabase.channel(`profile_self_${user.id}`)
+      .on('postgres_changes', { 
+        event: 'UPDATE', 
+        schema: 'public', 
+        table: 'profiles',
+        filter: `id=eq.${user.id}`
+      }, (payload) => {
+        setProfile((prev: any) => ({ ...prev, ...payload.new }))
+      })
+      .subscribe()
+    
+    return () => { supabase.removeChannel(channel) }
+  }, [user])
+
+  if (loading) return (
+    <div className="min-h-screen bg-alura-background flex flex-col items-center justify-center space-y-4">
+      <div className="w-10 h-10 border-4 border-alura-accent border-t-transparent rounded-full animate-spin"></div>
+      <p className="text-alura-textMuted font-medium tracking-wide">Carregando ecossistema...</p>
+    </div>
+  )
+
+  // Intercepta se o Onboarding não estiver completo (aceita false, nulo, undefined)
+  // E também intercepta se o profile nem existir ainda!
+  if (!profile || !profile.onboarding_completed) {
+    return <OnboardingWizard user={user} profile={profile || {}} onComplete={() => setProfile({ ...(profile || {}), onboarding_completed: true })} />
+  }
+
+  return (
+    <div className="flex h-screen w-full bg-alura-background overflow-hidden text-alura-textPrimary">
+      <GlobalRealtimeListener user={user} profile={profile} />
+      <Sidebar user={user} profile={profile} />
+      <div className="flex flex-1 flex-col overflow-hidden h-full">
+        <Topbar user={user} profile={profile} />
+        <Outlet context={{ user, profile }} />
+      </div>
+    </div>
+  )
+}
+

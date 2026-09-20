@@ -1,0 +1,35 @@
+{
+  "name": "desktop",
+  "version": "1.0.0",
+  "description": "Alura Desktop Application",
+  "author": "Alura",
+  "main": "main.js",
+  "scripts": {
+    "prestart": "node -e \"const fs = require('fs'); fs.rmSync('./ui', {recursive: true, force: true}); fs.cpSync('../web/dist', './ui', {recursive: true});\"",
+    "start": "electron .",
+    "build": "electron-builder --win --x64",
+    "build:portable": "node build-portable.js"
+  },
+  "build": {
+    "appId": "com.alura.app",
+    "productName": "Alura",
+    "win": {
+      "target": "nsis"
+    },
+    "directories": {
+      "output": "dist",
+      "buildResources": "build"
+    },
+    "files": [
+      "main.js",
+      "notification.html",
+      "icon.png",
+      "../web/dist/**/*"
+    ]
+  },
+  "devDependencies": {
+    "electron": "^29.1.0",
+    "electron-builder": "^24.12.0",
+    "@electron/packager": "^20.3.0"
+  }
+}

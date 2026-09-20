@@ -1,0 +1,62 @@
+# Walkthrough: Refinamento de Perfil, Configurações e Onboarding (Parte 2)
+
+Concluímos com sucesso a implementação completa da **Opção 2**: Perfil do usuário, Configurações com 7 abas funcionais, sincronização total do Onboarding Wizard e atalhos rápidos no painel do usuário.
+
+---
+
+## 🚀 Principais Entregas
+
+### 1. Onboarding Wizard & Sincronização
+- **Upload de Banner**: No [StepProfile.tsx](file:///c:/xampp/htdocs/AluraProjects/Alura/apps/web/src/pages/onboarding/steps/StepProfile.tsx), o usuário agora pode escolher entre 4 banners temáticos da Alura ou carregar sua própria arte em alta definição.
+- **Armazenamento no Supabase**: No [StepFinish.tsx](file:///c:/xampp/htdocs/AluraProjects/Alura/apps/web/src/pages/onboarding/steps/StepFinish.tsx), o banner é enviado para o bucket público `avatars` (`banner-${userId}-${timestamp}`) e persistido como `banner_url` na tabela `profiles`.
+- **Estreia no Feed Social**: Se o usuário escrever uma mensagem de boas-vindas na etapa final, ela é automaticamente publicada na tabela `feed_posts`, tornando o usuário ativo instantaneamente.
+
+### 2. Painel Completo de Configurações (Settings) & Feedback do Usuário
+No arquivo [Settings.tsx](file:///c:/xampp/htdocs/AluraProjects/Alura/apps/web/src/pages/app/Settings.tsx), foram implementadas 7 abas reais com persistência no Supabase e feedback de alto nível:
+- **Barra Flutuante de Alterações (Estilo Discord Premium)**: Ao alterar qualquer dado (nome, bio, avatar, banner, telefone, cidade, tags), surge uma barra flutuante no rodapé: *"Cuidado — você tem alterações não salvas!"* com botão "Redefinir" e "Salvar Alterações".
+- **Toasts Customizados sem Alerts**: Criação do [SystemToast.tsx](file:///c:/xampp/htdocs/AluraProjects/Alura/apps/web/src/components/shared/SystemToast.tsx) e integração global no [NotificationContext.tsx](file:///c:/xampp/htdocs/AluraProjects/Alura/apps/web/src/contexts/NotificationContext.tsx). 100% dos `alert()` e `confirm()` nativos do navegador foram erradicados da aplicação, substituídos por toasts estilizados com glow Alura e modais escuros com backdrop blur ([ConfirmModal.tsx](file:///c:/xampp/htdocs/AluraProjects/Alura/apps/web/src/components/shared/ConfirmModal.tsx)).
+- **Feedback Imediato ao Salvar**: Ao clicar em "Salvar alterações", o botão exibe estado de processamento ("Salvando...") e dispara um Toast luminoso de confirmação instantânea.
+- **Minha Conta**:
+  - Upload e preview instantâneo de foto de perfil e banner de fundo.
+  - Edição de nome de exibição, username, bio (com contador regressivo de 200 caracteres), telefone, cidade e data de nascimento.
+  - Seletor interativo de tags de perfil.
+  - Botão de salvamento com feedback visual e tratamento de erros.
+  - Cópia com 1 clique do ID de usuário.
+  - Live card preview sticky ao lado com dados atualizados em tempo real.
+- **Privacidade & Segurança (Submenus Estilo Discord)**:
+  - Submenu vertical conectado por linha guia e indicador ativo na barra lateral esquerda:
+    - **Privacidade Social**:
+      - Funções atuais 100% mantidas: Políticas de pedidos de amizade (Todos na Alura, Amigos de Amigos e Servidores Mútuos, Ninguém), DMs de membros de servidores em comum e status de atividade.
+      - Novas funções: Descoberta de perfil por e-mail e telefone, além de filtro de mídia e spam em mensagens diretas (Proteja-me, Apenas Desconhecidos, Desativado).
+    - **Senha e Segurança**:
+      - Alteração real de senha com integração direta ao `supabase.auth.updateUser({ password })`.
+      - Autenticação em duas etapas (2FA / TOTP) com modal moderno com QR Code, chave alfanumérica e validação de token de 6 dígitos.
+      - Painel de sessões ativas e dispositivos conectados (Alura Desktop vs Navegador Web) com botão "Encerrar Outras Sessões".
+    - **Usuários Bloqueados**:
+      - Função atual de bloqueios 100% preservada (`BlockService.getBlockedUsers`), lista de `BlockedCard` e desbloqueio seguro com modal de confirmação customizado.
+      - Nova barra de busca rápida para filtrar bloqueados em tempo real, contador dinâmico e empty state ilustrado.
+    - **Dados e Privacidade (LGPD / GDPR)**:
+      - Exportação imediata de todos os dados do usuário e configurações em arquivo `.json` estruturado.
+      - Toggles de privacidade para diagnósticos anônimos (telemetria) e recomendações personalizadas.
+      - Zona de Perigo da Conta: opções para desativar temporariamente ou solicitar exclusão definitiva da conta.
+- **Notificações**:
+  - Notificações nativas de área de trabalho e privacidade (ocultar prévia de mensagens, DND, tempo de inatividade).
+  - Sons removidos desta aba e centralizados exclusivamente em **Voz, Vídeo & Audio > Sons**, com card direcionador para navegação instantânea.
+- **Aparência**:
+  - Alternador de temas da Alura: **Alura Forest** (`#001B0B`), **Obsidian Black** (`#0B0D0F`) e **Cyber Neon** (`#39FF88`).
+  - Densidade de chat (Confortável vs Compacto) e controle de Redução de Movimento.
+- **Voz, Vídeo & Audio (Submenus Estilo Discord)**:
+  - Título principal atualizado para **Voz, Vídeo & Audio** na barra lateral e no topo da tela.
+  - Submenus conectados por linha vertical na barra lateral:
+    - **Voz**: Seletores de dispositivos de entrada/saída, sliders de volume, teste interativo de microfone com VU Meter em tempo real e modo de ativação por voz ou Push-to-Talk configurável.
+    - **Transmissão**: Resoluções de tela (720p, 1080p, 1440p, Fonte), taxas de quadros (15, 30, 60 FPS), modos de fluidez vs nitidez e toggles de captura de áudio da janela e aceleração GPU.
+    - **Sons**: Centralização total de todos os eventos sonoros com badges arredondados e ícones/emojis coloridos (DM verde, @ laranja, envio cinza, chamada verde, canal voz azul, saída vermelho, mic amarelo, deafen roxo, alerta neon), prévia imediata com botão Play e switches individuais.
+    - **Painel de efeitos sonoros (Soundboard)**: Grade de reações sonoras com síntese via Web Audio API (aplausos, rimshot, vitória, sino, levelup, boing), slider de volume e atalho global.
+    - **Avançado**: Supressão de ruído por IA (Krisp / RNNoise), cancelamento de eco acústico (AEC), controle automático de ganho (AGC) e subsistema WebRTC.
+
+---
+
+## 🔍 Validação
+- **TypeScript**: `npx tsc --noEmit` executado com código de saída 0 (zero erros de tipagem).
+- **Build Web**: `npm run build` executado com sucesso e bundle otimizado.
+- **Sincronização Desktop**: `npm run prestart` executado com sucesso sincronizando assets para o executável Electron.

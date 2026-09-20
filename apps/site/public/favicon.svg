@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" fill="none">
+  <defs>
+    <linearGradient id="alura-fav-left" x1="15%" y1="85%" x2="65%" y2="15%">
+      <stop offset="0%" stop-color="#00DFA0" />
+      <stop offset="40%" stop-color="#39FF88" />
+      <stop offset="100%" stop-color="#7EFFBD" />
+    </linearGradient>
+    <linearGradient id="alura-fav-right" x1="35%" y1="15%" x2="85%" y2="85%">
+      <stop offset="0%" stop-color="#00DFA0" />
+      <stop offset="45%" stop-color="#00B377" />
+      <stop offset="100%" stop-color="#004B1F" />
+    </linearGradient>
+    <linearGradient id="alura-fav-arch" x1="50%" y1="45%" x2="50%" y2="90%">
+      <stop offset="0%" stop-color="#007A40" />
+      <stop offset="45%" stop-color="#003516" />
+      <stop offset="100%" stop-color="#001609" />
+    </linearGradient>
+    <linearGradient id="alura-fav-crest" x1="20%" y1="70%" x2="80%" y2="70%">
+      <stop offset="0%" stop-color="#00DFA0" stop-opacity="0.15" />
+      <stop offset="50%" stop-color="#39FF88" stop-opacity="0.85" />
+      <stop offset="100%" stop-color="#00DFA0" stop-opacity="0.15" />
+    </linearGradient>
+  </defs>
+  <path d="M 26,73 C 34,60 41,53 50,53 C 59,53 66,60 74,73 C 66,64 58,59 50,59 C 42,59 34,64 26,73 Z" fill="url(#alura-fav-arch)"/>
+  <path d="M 28,73 C 35,61 42,54 50,54 C 58,54 65,61 72,73 C 65,65 57,60 50,60 C 43,60 35,65 28,73 Z" fill="url(#alura-fav-crest)"/>
+  <path d="M 50,14 C 55,14 59,18 61,22 L 83,67 C 87,75 80,83 73,81 C 69,80 66,77 64,72 L 51,44 C 50,42 49,32 50,14 Z" fill="url(#alura-fav-right)"/>
+  <path d="M 50,14 C 44,14 40,18 38,22 L 17,67 C 13,75 20,83 27,81 C 31,80 34,77 36,72 L 49,44 C 51,40 52,30 55,22 C 54,16 52,14 50,14 Z" fill="url(#alura-fav-left)"/>
+</svg>

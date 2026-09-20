@@ -1,0 +1,276 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Chamada Alura</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; -webkit-user-select: none; user-select: none; }
+    
+    :root {
+      --card-bg: linear-gradient(140deg, #16181D 0%, #0B0D0F 100%);
+      --card-border: rgba(255, 255, 255, 0.12);
+      --accent: #39FF88;
+      --accent-text: #0B0D0F;
+      --accent-shadow: rgba(57, 255, 136, 0.35);
+      --label-color: #39FF88;
+      --avatar-bg: linear-gradient(135deg, #1C1F26, #2A2E39);
+      --avatar-border: #111318;
+    }
+
+    [data-theme="obsidian"] {
+      --card-bg: linear-gradient(140deg, #1C1F26 0%, #0B0D0F 100%);
+      --card-border: rgba(255, 255, 255, 0.15);
+      --accent: #FFFFFF;
+      --accent-text: #0B0D0F;
+      --accent-shadow: rgba(255, 255, 255, 0.25);
+      --label-color: #E2E8F0;
+      --avatar-bg: linear-gradient(135deg, #2A2E39, #1C1F26);
+      --avatar-border: #0B0D0F;
+    }
+
+    [data-theme="midnight-blue"] {
+      --card-bg: linear-gradient(140deg, #0A1E3F 0%, #02060E 100%);
+      --card-border: rgba(3, 86, 197, 0.45);
+      --accent: #0356C5;
+      --accent-text: #FFFFFF;
+      --accent-shadow: rgba(3, 86, 197, 0.45);
+      --label-color: #4DA3FF;
+      --avatar-bg: linear-gradient(135deg, #0B3870, #061329);
+      --avatar-border: #02060E;
+    }
+
+    [data-theme="violet-radiance"] {
+      --card-bg: linear-gradient(140deg, #1D1B68 0%, #070D3D 100%);
+      --card-border: rgba(210, 3, 221, 0.45);
+      --accent: #D203DD;
+      --accent-text: #FFFFFF;
+      --accent-shadow: rgba(210, 3, 221, 0.45);
+      --label-color: #E247EC;
+      --avatar-bg: linear-gradient(135deg, #42158A, #12145A);
+      --avatar-border: #070D3D;
+    }
+
+    [data-theme="crimson-noir"] {
+      --card-bg: linear-gradient(140deg, #2D0517 0%, #02060E 100%);
+      --card-border: rgba(197, 3, 55, 0.45);
+      --accent: #C50337;
+      --accent-text: #FFFFFF;
+      --accent-shadow: rgba(197, 3, 55, 0.45);
+      --label-color: #FF3B6B;
+      --avatar-bg: linear-gradient(135deg, #5A0823, #18030C);
+      --avatar-border: #02060E;
+    }
+
+    [data-theme="forest"] {
+      --card-bg: linear-gradient(140deg, #00220E 0%, #001408 100%);
+      --card-border: rgba(57, 255, 136, 0.35);
+      --accent: #39FF88;
+      --accent-text: #001B0B;
+      --accent-shadow: rgba(57, 255, 136, 0.35);
+      --label-color: #39FF88;
+      --avatar-bg: linear-gradient(135deg, #002A12, #004B1F);
+      --avatar-border: #001B0B;
+    }
+
+    [data-theme="contrast"] {
+      --card-bg: linear-gradient(140deg, #001A1A 0%, #000808 100%);
+      --card-border: rgba(57, 255, 136, 0.4);
+      --accent: #39FF88;
+      --accent-text: #000808;
+      --accent-shadow: rgba(57, 255, 136, 0.4);
+      --label-color: #39FF88;
+      --avatar-bg: linear-gradient(135deg, #003333, #001A1A);
+      --avatar-border: #000808;
+    }
+
+    html, body {
+      width: 100%;
+      height: 100%;
+      background: transparent;
+      font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+      overflow: hidden;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 8px;
+    }
+    .call-card {
+      width: 100%;
+      height: 100%;
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 16px;
+      box-shadow: 0 16px 36px rgba(0, 0, 0, 0.8), 0 0 24px var(--accent-shadow);
+      padding: 14px 16px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      animation: slideIn 0.25s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+    }
+    @keyframes slideIn {
+      from { opacity: 0; transform: translateY(16px) scale(0.96); }
+      to   { opacity: 1; transform: translateY(0) scale(1); }
+    }
+    .call-header { display: flex; align-items: center; gap: 12px; }
+    .avatar-ring {
+      position: relative;
+      flex-shrink: 0;
+      width: 48px;
+      height: 48px;
+    }
+    .avatar-ring::before {
+      content: '';
+      position: absolute;
+      inset: -3px;
+      border-radius: 50%;
+      background: conic-gradient(from 0deg, var(--accent), transparent 70%, var(--accent));
+      animation: spin 3s linear infinite;
+      z-index: 0;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .avatar {
+      position: relative;
+      z-index: 1;
+      width: 100%;
+      height: 100%;
+      border-radius: 50%;
+      background: var(--avatar-bg);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 20px;
+      font-weight: 700;
+      color: #ffffff;
+      border: 2px solid var(--avatar-border);
+      overflow: hidden;
+    }
+    .avatar img { width: 100%; height: 100%; object-fit: cover; }
+    .call-info { flex: 1; min-width: 0; }
+    .call-label {
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: .08em;
+      text-transform: uppercase;
+      color: var(--label-color);
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      margin-bottom: 2px;
+    }
+    .caller-name {
+      font-size: 15px;
+      font-weight: 700;
+      color: #ffffff;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      line-height: 1.2;
+    }
+    .call-type {
+      font-size: 11.5px;
+      color: rgba(255, 255, 255, 0.65);
+      margin-top: 2px;
+    }
+    .call-actions {
+      display: flex;
+      gap: 10px;
+      margin-top: 6px;
+    }
+    .btn {
+      flex: 1;
+      height: 38px;
+      border: none;
+      border-radius: 10px;
+      font-size: 12.5px;
+      font-weight: 700;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      transition: all .15s ease;
+    }
+    .btn:active { transform: scale(0.96); }
+    .btn-reject {
+      background: rgba(255, 60, 60, 0.15);
+      color: #ff6b6b;
+      border: 1px solid rgba(255, 60, 60, 0.35);
+    }
+    .btn-reject:hover {
+      background: rgba(255, 60, 60, 0.28);
+      border-color: rgba(255, 60, 60, 0.6);
+      color: #ffffff;
+    }
+    .btn-accept {
+      background: var(--accent);
+      color: var(--accent-text);
+      border: 1px solid var(--accent);
+      box-shadow: 0 0 12px var(--accent-shadow);
+    }
+    .btn-accept:hover {
+      filter: brightness(1.1);
+      box-shadow: 0 0 18px var(--accent-shadow);
+    }
+    .btn svg { width: 15px; height: 15px; }
+    .pulse-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: var(--accent);
+      animation: pulse 1.4s ease-in-out infinite;
+      display: inline-block;
+    }
+    @keyframes pulse {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50%      { opacity: 0.4; transform: scale(0.7); }
+    }
+  </style>
+</head>
+<body>
+  <div class="call-card">
+    <div class="call-header">
+      <div class="avatar-ring">
+        <div class="avatar" id="avatar">?</div>
+      </div>
+      <div class="call-info">
+        <div class="call-label"><span class="pulse-dot"></span>CHAMADA RECEBIDA</div>
+        <div class="caller-name" id="callerName">Carregando...</div>
+        <div class="call-type" id="callType">Chamada de voz</div>
+      </div>
+    </div>
+    <div class="call-actions">
+      <button class="btn btn-reject" id="rejectBtn">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6L6 18M6 6l12 12"/></svg>
+        Rejeitar
+      </button>
+      <button class="btn btn-accept" id="acceptBtn">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.07 10a19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 3 1.18h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L7.09 8.91a16 16 0 0 0 6.13 6.13l1.27-1.27a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
+        Atender
+      </button>
+    </div>
+  </div>
+  <script>
+    const ipc = window.electronIPC;
+
+    ipc.on('incoming-call-data', (data) => {
+      if (data.theme) {
+        document.body.setAttribute('data-theme', data.theme);
+      }
+      const name = data.callerName || 'Usuário';
+      document.getElementById('callerName').textContent = '@' + name;
+      document.getElementById('callType').textContent = (data.callType === 'video' ? 'Chamada de vídeo' : 'Chamada de voz') + ' • Alura';
+      const av = document.getElementById('avatar');
+      if (data.callerAvatar) {
+        av.innerHTML = `<img src="${data.callerAvatar}" alt="" onerror="this.parentElement.textContent='${name[0]?.toUpperCase() || '?'}'">`;
+      } else {
+        av.textContent = name[0]?.toUpperCase() || '?';
+      }
+    });
+
+    document.getElementById('acceptBtn').onclick = () => ipc.send('call-action', { action: 'accept' });
+    document.getElementById('rejectBtn').onclick = () => ipc.send('call-action', { action: 'reject' });
+    setTimeout(() => ipc.send('call-action', { action: 'timeout' }), 35000);
+  </script>
+</body>
+</html>

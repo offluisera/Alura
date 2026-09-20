@@ -1,0 +1,47 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    /* Alura Palette - Dark Neutral + Neon Mint Accent */
+    --background: 216 15% 5%; /* #0B0D0F */
+    --foreground: 0 0% 96%; /* #F5F5F5 */
+    
+    --card: 223 14% 10%; /* #16181D */
+    --card-foreground: 0 0% 96%;
+    
+    --popover: 223 16% 8%; /* #111318 */
+    --popover-foreground: 0 0% 96%;
+    
+    --primary: 144 100% 61%; /* #39FF88 */
+    --primary-foreground: 216 15% 5%; /* #0B0D0F */
+    
+    --secondary: 223 16% 8%; /* #111318 */
+    --secondary-foreground: 0 0% 96%;
+    
+    --muted: 223 14% 10%; /* #16181D */
+    --muted-foreground: 218 11% 65%; /* #9CA3AF */
+    
+    --accent: 144 100% 61%; /* #39FF88 */
+    --accent-foreground: 216 15% 5%;
+    
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 0 0% 96%;
+
+    --border: 220 13% 18%; /* rgba(255,255,255,0.10) */
+    --input: 223 14% 10%;
+    --ring: 144 100% 61%;
+
+    --radius: 0.5rem;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground font-sans antialiased;
+  }
+}

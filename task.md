@@ -1,0 +1,6 @@
+- [x] Modify `apps/desktop/main.js` to handle `show-custom-notification` IPC event and manage floating notification windows.
+- [x] Create `apps/desktop/notification.html` to render the custom visual toast exactly matching the UI requirements.
+- [x] Modify `apps/web/src/contexts/NotificationContext.tsx` to detect `window.require('electron')` and dispatch IPC events instead of HTML5 Notifications.
+- [ ] Test the notification via Electron dev (`npm start` in desktop).
+- [ ] Build the web app (`npm run build`).
+- [ ] Build the portable desktop app (`npm run build:portable`).

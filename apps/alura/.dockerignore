@@ -1,0 +1,9 @@
+_build
+deps
+.git
+.env*
+!*.example
+priv/static
+*.log
+*.swp
+.DS_Store

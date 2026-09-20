@@ -1,0 +1,54 @@
+# Melhorias de Onboarding e Anexos
+
+Este plano propõe as atualizações arquiteturais e visuais solicitadas na Sessão 03 para a parte de Onboarding e Mensagens. O objetivo é permitir envios de mídias dinâmicas, integração real com Emojis e uploads via Supabase Storage.
+
+## User Review Required
+
+> [!IMPORTANT]  
+> A criação de um novo Bucket no Supabase Storage chamado **avatars** será realizada. Isso é necessário para salvar as fotos de perfil (incluindo `.gif` e vídeos pequenos) de forma pública. Por favor, revise a migração proposta antes da execução.
+
+## Proposed Changes
+
+---
+
+### Banco de Dados / Storage
+
+#### [NEW] [20240101000016_avatars_bucket.sql](file:///c:/xampp/htdocs/AluraProjects/Alura/supabase/migrations/20240101000016_avatars_bucket.sql)
+Criar uma nova migração SQL que constrói o bucket `avatars` no Storage do Supabase de forma pública e define as políticas do RLS para permitir que os usuários façam o upload de seus arquivos.
+
+---
+
+### Frontend - Onboarding
+
+#### [MODIFY] [StepProfile.tsx](file:///c:/xampp/htdocs/AluraProjects/Alura/apps/web/src/pages/onboarding/steps/StepProfile.tsx)
+- Atualizar o `accept` do input de arquivo para incluir `image/gif`, `video/mp4` e `video/webm`.
+- Refinar a prévia visual (`avatarImage`) no componente caso seja um vídeo, exibindo um mini-player mudo em loop para o avatar.
+
+#### [MODIFY] [StepMessage.tsx](file:///c:/xampp/htdocs/AluraProjects/Alura/apps/web/src/pages/onboarding/steps/StepMessage.tsx)
+- Melhorar o design (*pixel-perfect*) para torná-lo aderente ao estilo Premium (cores e sombras).
+- Adicionar o componente `emoji-picker-react` com tema Dark.
+- Posicionar um botão de `Smile` ao lado (ou dentro) do `textarea` que, ao ser clicado, abre o seletor flutuante para inserir emojis no texto.
+
+#### [MODIFY] [StepFinish.tsx](file:///c:/xampp/htdocs/AluraProjects/Alura/apps/web/src/pages/onboarding/steps/StepFinish.tsx)
+- Antes de invocar o `.upsert()` em `profiles`, verificar se `data.avatarUrl` é um arquivo local em vez de uma string.
+- Se for um `File`, fazer upload para o bucket `avatars` no Supabase Storage.
+- Obter a URL pública do avatar e salvar na tabela `profiles`.
+- Adicionar um estado de loading com indicador visual e *motion* para comunicar ao usuário enquanto as imagens são enviadas.
+
+---
+
+### Frontend - Mensagens Diretas
+
+#### [MODIFY] [DirectMessage.tsx](file:///c:/xampp/htdocs/AluraProjects/Alura/apps/web/src/pages/app/DirectMessage.tsx)
+- Ajustar os inputs de seleção de arquivo (`fileInputRef`) para explicitamente aceitar PDFs, RARs, DOCs e demais arquivos permitidos.
+- Aperfeiçoar o renderizador de mensagens enviadas. Hoje as mensagens em anexo (se não forem de imagem ou vídeo) aparecem como um bloco de texto básico, irei estilizá-los para parecerem blocos de download premium contendo o ícone da respectiva extensão (`.pdf`, `.rar`, `.zip`, etc).
+- Garantir que as restrições de tamanho (até 25mb para vídeos/documentos) sejam claras na interface antes do *upload* falhar.
+
+## Verification Plan
+
+### Manual Verification
+1. O usuário poderá abrir o app, logar com a conta, e realizar o onboarding completo.
+2. Na etapa 4 (Perfil), poderá upar um vídeo MP4/GIF de até 10MB.
+3. Na etapa 5 (Mensagem), testará a inserção de emojis utilizando a UI nativa.
+4. Na etapa 6, ao finalizar, verificaremos no console e interface se a URL salva no banco de dados e no Supabase Storage corresponde à imagem/vídeo.
+5. No chat principal, enviaremos um `.pdf` para o outro usuário e o arquivo deve aparecer formatado como botão de download, e não quebrar.

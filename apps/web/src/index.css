@@ -1,0 +1,865 @@
+@import "../../../packages/ui/src/styles/globals.css";
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ==========================================================================
+   ALURA DESIGN SYSTEM â€” DESIGN TOKENS MULTI-TEMA
+   ========================================================================== */
+
+/* 1. TEMA OFICIAL DEFAULT: ALURA FOREST */
+:root,
+[data-theme="forest"] {
+  /* Alura Structural Colors */
+  --alura-bg: #001609;
+  --alura-bg-rgb: 0, 22, 9;
+  --alura-bg-deep: #001207;
+  --alura-bg-deep-rgb: 0, 18, 7;
+  
+  --alura-navigation: #001B0B;
+  --alura-navigation-rgb: 0, 27, 11;
+  --alura-surface1: #001B0B;
+  --alura-surface1-rgb: 0, 27, 11;
+  --alura-surface2: #00220E;
+  --alura-surface2-rgb: 0, 34, 14;
+  --alura-surface3: #002A12;
+  --alura-surface3-rgb: 0, 42, 18;
+  
+  --alura-hover: #003014;
+  --alura-hover-rgb: 0, 48, 20;
+  --alura-selected: rgba(0, 230, 160, 0.15);
+  
+  --alura-border: #005022;
+  --alura-border-rgb: 0, 80, 34;
+  --alura-border-strong: #00C98A;
+  --alura-border-strong-rgb: 0, 201, 138;
+  
+  --alura-accent: #00E6A0;
+  --alura-accent-rgb: 0, 230, 160;
+  --alura-accent-bright: #39FF88;
+  --alura-accent-bright-rgb: 57, 255, 136;
+  --alura-accent-muted: rgba(0, 230, 160, 0.12);
+  --alura-accent-soft: rgba(0, 230, 160, 0.25);
+  
+  --alura-text-primary: #F2FFF8;
+  --alura-text-primary-rgb: 242, 255, 248;
+  --alura-text-secondary: #B8CEC2;
+  --alura-text-secondary-rgb: 184, 206, 194;
+  --alura-text-muted: #789487;
+  --alura-text-muted-rgb: 120, 148, 135;
+  --alura-text-disabled: #496356;
+  --alura-text-disabled-rgb: 73, 99, 86;
+  
+  --alura-focus: #00E6A0;
+  --gradient-primary: linear-gradient(135deg, #003C19 0%, #005322 45%, #00E6A0 100%);
+  --gradient-surface: linear-gradient(145deg, #002A12 0%, #001B0B 100%);
+  --theme-hero-bg: radial-gradient(ellipse 90% 65% at 80% 15%, rgba(0, 230, 160, 0.35) 0%, rgba(0, 83, 34, 0.3) 50%, transparent 80%), radial-gradient(ellipse 60% 50% at 15% 35%, rgba(0, 42, 18, 0.45) 0%, transparent 70%), linear-gradient(140deg, #001B0B 0%, #001609 100%);
+  --theme-logo-filter: drop-shadow(0 0 8px rgba(0, 230, 160, 0.45));
+
+  /* UI Primitives sync */
+  --background: 147 100% 5%;
+  --foreground: 153 100% 97%;
+  --card: 150 50% 8%;
+  --card-foreground: 153 100% 97%;
+  --popover: 147 100% 6%;
+  --popover-foreground: 153 100% 97%;
+  --primary: 162 100% 45%;
+  --primary-foreground: 147 100% 5%;
+  --border: 146 100% 16%;
+}
+
+/* 2. OBSIDIAN BLACK */
+[data-theme="obsidian"] {
+  --alura-bg: #0B0D0F;
+  --alura-bg-rgb: 11, 13, 15;
+  --alura-bg-deep: #07080A;
+  --alura-bg-deep-rgb: 7, 8, 10;
+  
+  --alura-navigation: #111318;
+  --alura-navigation-rgb: 17, 19, 24;
+  --alura-surface1: #111318;
+  --alura-surface1-rgb: 17, 19, 24;
+  --alura-surface2: #16181D;
+  --alura-surface2-rgb: 22, 24, 29;
+  --alura-surface3: #1C1F26;
+  --alura-surface3-rgb: 28, 31, 38;
+  
+  --alura-hover: #22262F;
+  --alura-hover-rgb: 34, 38, 47;
+  --alura-selected: rgba(255, 255, 255, 0.08);
+  
+  --alura-border: rgba(255, 255, 255, 0.10);
+  --alura-border-rgb: 255, 255, 255;
+  --alura-border-strong: rgba(255, 255, 255, 0.18);
+  --alura-border-strong-rgb: 255, 255, 255;
+  
+  --alura-accent: #39FF88;
+  --alura-accent-rgb: 57, 255, 136;
+  --alura-accent-bright: #52FF9A;
+  --alura-accent-bright-rgb: 82, 255, 154;
+  --alura-accent-muted: rgba(57, 255, 136, 0.12);
+  --alura-accent-soft: rgba(57, 255, 136, 0.25);
+  
+  --alura-text-primary: #F5F5F5;
+  --alura-text-primary-rgb: 245, 245, 245;
+  --alura-text-secondary: #9CA3AF;
+  --alura-text-secondary-rgb: 156, 163, 175;
+  --alura-text-muted: #6B7280;
+  --alura-text-muted-rgb: 107, 114, 128;
+  --alura-text-disabled: #4B5563;
+  --alura-text-disabled-rgb: 75, 85, 99;
+  
+  --alura-focus: #39FF88;
+  --gradient-primary: linear-gradient(135deg, #16181D 0%, #22262F 50%, #39FF88 100%);
+  --gradient-surface: linear-gradient(145deg, #1C1F26 0%, #111318 100%);
+  --theme-hero-bg: radial-gradient(ellipse 90% 65% at 80% 15%, rgba(255, 255, 255, 0.12) 0%, rgba(57, 255, 136, 0.08) 50%, transparent 80%), radial-gradient(ellipse 60% 50% at 15% 35%, rgba(28, 31, 38, 0.5) 0%, transparent 70%), linear-gradient(140deg, #16181D 0%, #0B0D0F 100%);
+  --theme-logo-filter: grayscale(1) brightness(1.25) drop-shadow(0 0 8px rgba(255, 255, 255, 0.35));
+
+  --background: 216 15% 5%;
+  --foreground: 0 0% 96%;
+  --card: 223 14% 10%;
+  --card-foreground: 0 0% 96%;
+  --popover: 223 16% 8%;
+  --popover-foreground: 0 0% 96%;
+  --primary: 144 100% 61%;
+  --primary-foreground: 216 15% 5%;
+  --border: 220 13% 18%;
+}
+
+/* 3. CYBER NEON */
+[data-theme="contrast"] {
+  --alura-bg: #000808;
+  --alura-bg-rgb: 0, 8, 8;
+  --alura-bg-deep: #000404;
+  --alura-bg-deep-rgb: 0, 4, 4;
+  
+  --alura-navigation: #001212;
+  --alura-navigation-rgb: 0, 18, 18;
+  --alura-surface1: #001212;
+  --alura-surface1-rgb: 0, 18, 18;
+  --alura-surface2: #001F1F;
+  --alura-surface2-rgb: 0, 31, 31;
+  --alura-surface3: #002B2B;
+  --alura-surface3-rgb: 0, 43, 43;
+  
+  --alura-hover: #003838;
+  --alura-hover-rgb: 0, 56, 56;
+  --alura-selected: rgba(57, 255, 136, 0.20);
+  
+  --alura-border: #004D4D;
+  --alura-border-rgb: 0, 77, 77;
+  --alura-border-strong: #39FF88;
+  --alura-border-strong-rgb: 57, 255, 136;
+  
+  --alura-accent: #39FF88;
+  --alura-accent-rgb: 57, 255, 136;
+  --alura-accent-bright: #00FF80;
+  --alura-accent-bright-rgb: 0, 255, 128;
+  --alura-accent-muted: rgba(57, 255, 136, 0.15);
+  --alura-accent-soft: rgba(57, 255, 136, 0.30);
+  
+  --alura-text-primary: #FFFFFF;
+  --alura-text-primary-rgb: 255, 255, 255;
+  --alura-text-secondary: #C2F0E0;
+  --alura-text-secondary-rgb: 194, 240, 224;
+  --alura-text-muted: #80BFA8;
+  --alura-text-muted-rgb: 128, 191, 168;
+  --alura-text-disabled: #4D7365;
+  --alura-text-disabled-rgb: 77, 115, 101;
+  
+  --alura-focus: #39FF88;
+  --gradient-primary: linear-gradient(135deg, #001F1F 0%, #004D4D 45%, #39FF88 100%);
+  --gradient-surface: linear-gradient(145deg, #002B2B 0%, #001212 100%);
+  --theme-hero-bg: radial-gradient(ellipse 90% 65% at 80% 15%, rgba(57, 255, 136, 0.3) 0%, rgba(0, 77, 77, 0.4) 50%, transparent 80%), radial-gradient(ellipse 60% 50% at 15% 35%, rgba(0, 31, 31, 0.5) 0%, transparent 70%), linear-gradient(140deg, #001212 0%, #000808 100%);
+  --theme-logo-filter: brightness(1.2) contrast(1.1) drop-shadow(0 0 10px rgba(57, 255, 136, 0.7));
+
+  --background: 180 100% 2%;
+  --foreground: 0 0% 100%;
+  --card: 180 50% 6%;
+  --card-foreground: 0 0% 100%;
+  --popover: 180 100% 4%;
+  --popover-foreground: 0 0% 100%;
+  --primary: 144 100% 61%;
+  --primary-foreground: 180 100% 2%;
+  --border: 180 100% 15%;
+}
+
+/* 4. VIOLET RADIANCE (docs/ref/temas/ALURA-THEME-VIOLET-RADIANCE.md) */
+[data-theme="violet-radiance"] {
+  --alura-bg: #0D1E79;
+  --alura-bg-rgb: 13, 30, 121;
+  --alura-bg-deep: #070D3D;
+  --alura-bg-deep-rgb: 7, 13, 61;
+  
+  --alura-navigation: #070D3D;
+  --alura-navigation-rgb: 7, 13, 61;
+  --alura-surface1: #12145A;
+  --alura-surface1-rgb: 18, 20, 90;
+  --alura-surface2: #24146F;
+  --alura-surface2-rgb: 36, 20, 111;
+  --alura-surface3: #42158A;
+  --alura-surface3-rgb: 66, 21, 138;
+  
+  --alura-hover: #24146F;
+  --alura-hover-rgb: 36, 20, 111;
+  --alura-selected: rgba(210, 3, 221, 0.22);
+  
+  --alura-border: #6B35A8;
+  --alura-border-rgb: 107, 53, 168;
+  --alura-border-strong: #B04BD0;
+  --alura-border-strong-rgb: 176, 75, 208;
+  
+  --alura-accent: #D203DD;
+  --alura-accent-rgb: 210, 3, 221;
+  --alura-accent-bright: #F018FF;
+  --alura-accent-bright-rgb: 240, 24, 255;
+  --alura-accent-muted: rgba(210, 3, 221, 0.15);
+  --alura-accent-soft: rgba(210, 3, 221, 0.28);
+  
+  --alura-text-primary: #FFFFFF;
+  --alura-text-primary-rgb: 255, 255, 255;
+  --alura-text-secondary: #E6DFF2;
+  --alura-text-secondary-rgb: 230, 223, 242;
+  --alura-text-muted: #B7AFC5;
+  --alura-text-muted-rgb: 183, 175, 197;
+  --alura-text-disabled: #766D82;
+  --alura-text-disabled-rgb: 118, 109, 130;
+  
+  --alura-focus: #F018FF;
+  --gradient-primary: linear-gradient(135deg, #0D1E79 0%, #D203DD 100%);
+  --gradient-surface: linear-gradient(145deg, #24146F 0%, #10144D 100%);
+  --theme-hero-bg: radial-gradient(ellipse 90% 65% at 80% 15%, rgba(210, 3, 221, 0.45) 0%, rgba(66, 21, 138, 0.35) 50%, transparent 80%), radial-gradient(ellipse 60% 50% at 15% 35%, rgba(36, 20, 111, 0.4) 0%, transparent 70%), linear-gradient(140deg, #12145A 0%, #070D3D 100%);
+  --theme-logo-filter: hue-rotate(142deg) saturate(1.4) brightness(1.1) drop-shadow(0 0 10px rgba(210, 3, 221, 0.6));
+
+  --background: 232 80% 26%;
+  --foreground: 0 0% 100%;
+  --card: 237 67% 21%;
+  --card-foreground: 0 0% 100%;
+  --popover: 234 80% 13%;
+  --popover-foreground: 0 0% 100%;
+  --primary: 297 97% 44%;
+  --primary-foreground: 0 0% 100%;
+  --border: 271 52% 43%;
+}
+
+/* 5. MIDNIGHT BLUE (docs/ref/temas/ALURA-THEME-MIDNIGHT-BLUE.md) */
+[data-theme="midnight-blue"] {
+  --alura-bg: #02060E;
+  --alura-bg-rgb: 2, 6, 14;
+  --alura-bg-deep: #010309;
+  --alura-bg-deep-rgb: 1, 3, 9;
+  
+  --alura-navigation: #010309;
+  --alura-navigation-rgb: 1, 3, 9;
+  --alura-surface1: #061329;
+  --alura-surface1-rgb: 6, 19, 41;
+  --alura-surface2: #082650;
+  --alura-surface2-rgb: 8, 38, 80;
+  --alura-surface3: #0B3870;
+  --alura-surface3-rgb: 11, 56, 112;
+  
+  --alura-hover: #082650;
+  --alura-hover-rgb: 8, 38, 80;
+  --alura-selected: rgba(3, 86, 197, 0.25);
+  
+  --alura-border: #174A82;
+  --alura-border-rgb: 23, 74, 130;
+  --alura-border-strong: #286DB7;
+  --alura-border-strong-rgb: 40, 109, 183;
+  
+  --alura-accent: #0356C5;
+  --alura-accent-rgb: 3, 86, 197;
+  --alura-accent-bright: #1475FF;
+  --alura-accent-bright-rgb: 20, 117, 255;
+  --alura-accent-muted: rgba(3, 86, 197, 0.15);
+  --alura-accent-soft: rgba(3, 86, 197, 0.28);
+  
+  --alura-text-primary: #F7FAFF;
+  --alura-text-primary-rgb: 247, 250, 255;
+  --alura-text-secondary: #C8D5E6;
+  --alura-text-secondary-rgb: 200, 213, 230;
+  --alura-text-muted: #8192A8;
+  --alura-text-muted-rgb: 129, 146, 168;
+  --alura-text-disabled: #566477;
+  --alura-text-disabled-rgb: 86, 100, 119;
+  
+  --alura-focus: #1475FF;
+  --gradient-primary: linear-gradient(135deg, #02060E 0%, #0356C5 100%);
+  --gradient-surface: linear-gradient(145deg, #0B3870 0%, #061329 100%);
+  --theme-hero-bg: radial-gradient(ellipse 90% 65% at 80% 15%, rgba(3, 86, 197, 0.45) 0%, rgba(11, 56, 112, 0.3) 50%, transparent 80%), radial-gradient(ellipse 60% 50% at 15% 35%, rgba(8, 38, 80, 0.35) 0%, transparent 70%), linear-gradient(140deg, #061329 0%, #02060E 100%);
+  --theme-logo-filter: hue-rotate(59deg) saturate(1.5) brightness(1.05) drop-shadow(0 0 10px rgba(3, 86, 197, 0.6));
+
+  --background: 220 75% 3%;
+  --foreground: 218 100% 98%;
+  --card: 218 74% 9%;
+  --card-foreground: 218 100% 98%;
+  --popover: 225 80% 2%;
+  --popover-foreground: 218 100% 98%;
+  --primary: 214 97% 39%;
+  --primary-foreground: 0 0% 100%;
+  --border: 212 70% 30%;
+}
+
+/* 6. CRIMSON NOIR (docs/ref/temas/ALURA-THEME-CRIMSON-NOIR.md) */
+[data-theme="crimson-noir"] {
+  --alura-bg: #02060E;
+  --alura-bg-rgb: 2, 6, 14;
+  --alura-bg-deep: #090107;
+  --alura-bg-deep-rgb: 9, 1, 7;
+  
+  --alura-navigation: #090107;
+  --alura-navigation-rgb: 9, 1, 7;
+  --alura-surface1: #18030C;
+  --alura-surface1-rgb: 24, 3, 12;
+  --alura-surface2: #350516;
+  --alura-surface2-rgb: 53, 5, 22;
+  --alura-surface3: #5A0823;
+  --alura-surface3-rgb: 90, 8, 35;
+  
+  --alura-hover: #350516;
+  --alura-hover-rgb: 53, 5, 22;
+  --alura-selected: rgba(197, 3, 55, 0.25);
+  
+  --alura-border: #70203C;
+  --alura-border-rgb: 112, 32, 60;
+  --alura-border-strong: #A92C51;
+  --alura-border-strong-rgb: 169, 44, 81;
+  
+  --alura-accent: #C50337;
+  --alura-accent-rgb: 197, 3, 55;
+  --alura-accent-bright: #E20A49;
+  --alura-accent-bright-rgb: 226, 10, 73;
+  --alura-accent-muted: rgba(197, 3, 55, 0.15);
+  --alura-accent-soft: rgba(197, 3, 55, 0.28);
+  
+  --alura-text-primary: #FFF7F9;
+  --alura-text-primary-rgb: 255, 247, 249;
+  --alura-text-secondary: #E8D5DA;
+  --alura-text-secondary-rgb: 232, 213, 218;
+  --alura-text-muted: #A98D95;
+  --alura-text-muted-rgb: 169, 141, 149;
+  --alura-text-disabled: #6D555D;
+  --alura-text-disabled-rgb: 109, 85, 93;
+  
+  --alura-focus: #E20A49;
+  --gradient-primary: linear-gradient(135deg, #02060E 0%, #C50337 100%);
+  --gradient-surface: linear-gradient(145deg, #5A0823 0%, #18030C 100%);
+  --theme-hero-bg: radial-gradient(ellipse 90% 65% at 80% 15%, rgba(197, 3, 55, 0.45) 0%, rgba(90, 8, 35, 0.3) 50%, transparent 80%), radial-gradient(ellipse 60% 50% at 15% 35%, rgba(53, 5, 22, 0.35) 0%, transparent 70%), linear-gradient(140deg, #18030C 0%, #02060E 100%);
+  --theme-logo-filter: hue-rotate(189deg) saturate(1.6) brightness(1.05) drop-shadow(0 0 10px rgba(197, 3, 55, 0.65));
+
+  --background: 220 75% 3%;
+  --foreground: 345 100% 98%;
+  --card: 334 78% 5%;
+  --card-foreground: 345 100% 98%;
+  --popover: 315 80% 2%;
+  --popover-foreground: 345 100% 98%;
+  --primary: 344 97% 39%;
+  --primary-foreground: 0 0% 100%;
+  --border: 341 46% 28%;
+}
+
+/* ==========================================================================
+   ESTILOS GLOBAIS DA APLICAÃ‡ÃƒO
+   ========================================================================== */
+body, html {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+  background-color: var(--alura-bg);
+  color: var(--alura-text-primary);
+  transition: background-color 0.25s ease, color 0.25s ease;
+}
+
+/* Scrollbars dinÃ¢micas Alura que herdam a cor de destaque do tema ativo */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.12) transparent;
+}
+
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background-color: rgba(255, 255, 255, 0.12);
+  border-radius: 9999px;
+  transition: background-color 0.2s ease;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background-color: var(--alura-accent);
+}
+
+/* Acessibilidade: ReduÃ§Ã£o de movimento */
+[data-reduced-motion="true"] *,
+.reduced-motion * {
+  animation-duration: 0.001ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.001ms !important;
+  scroll-behavior: auto !important;
+}
+
+/* Densidade de interface */
+[data-density="compact"] .chat-message {
+  padding-top: 0.25rem !important;
+  padding-bottom: 0.25rem !important;
+}
+[data-density="compact"] .chat-avatar {
+  width: 2rem !important;
+  height: 2rem !important;
+}
+
+/* ==========================================================================
+   CALL SYSTEM â€” WebRTC Overlay (tema-adaptÃ¡vel)
+   ========================================================================== */
+
+/* â”€â”€ Container principal â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+.call-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 50;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-end;
+  padding-bottom: 32px;
+  gap: 24px;
+  overflow: hidden;
+}
+
+.call-overlay__bg {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    180deg,
+    rgba(var(--alura-bg-rgb, 0,22,9), 0.93) 0%,
+    rgba(var(--alura-bg-deep-rgb, 0,10,5), 0.98) 100%
+  );
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+}
+
+/* â”€â”€ VÃ­deo / Ãudio â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+.call-overlay__remote-video {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  z-index: 0;
+}
+
+.call-overlay__audio {
+  position: absolute;
+  width: 0;
+  height: 0;
+  pointer-events: none;
+}
+
+/* â”€â”€ Avatares (modo Ã¡udio) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+.call-overlay__avatars {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 80px;
+  flex: 1;
+}
+
+.call-overlay__participant {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+}
+
+.call-overlay__participant--remote .call-overlay__avatar-ring {
+  width: 120px;
+  height: 120px;
+}
+
+.call-overlay__participant--local .call-overlay__avatar-ring {
+  width: 72px;
+  height: 72px;
+  opacity: 0.8;
+}
+
+.call-overlay__avatar-ring {
+  position: relative;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.call-overlay__avatar-ring::before {
+  content: '';
+  position: absolute;
+  inset: -3px;
+  border-radius: 50%;
+  background: rgba(var(--alura-accent-rgb, 0,230,160), 0.12);
+  border: 2px solid rgba(var(--alura-accent-rgb, 0,230,160), 0.22);
+  transition: all 0.4s ease;
+}
+
+.call-overlay__avatar-ring--active::before {
+  background: rgba(var(--alura-accent-rgb, 0,230,160), 0.18);
+  border-color: rgba(var(--alura-accent-rgb, 0,230,160), 0.5);
+  box-shadow: 0 0 20px rgba(var(--alura-accent-rgb, 0,230,160), 0.25);
+}
+
+.call-overlay__avatar-ring--speaking::before {
+  animation: speaking-pulse 1.2s ease-in-out infinite;
+  border-color: rgba(var(--alura-accent-rgb, 0,230,160), 0.6);
+}
+
+@keyframes speaking-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(var(--alura-accent-rgb, 0,230,160), 0.3); }
+  50%       { box-shadow: 0 0 0 8px rgba(var(--alura-accent-rgb, 0,230,160), 0); }
+}
+
+.call-overlay__avatar-img {
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 2px solid rgba(var(--alura-accent-rgb, 0,230,160), 0.2);
+}
+
+.call-overlay__avatar-initials {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: var(--alura-surface2, #00220E);
+  color: var(--alura-accent, #00E6A0);
+  font-weight: 700;
+  font-size: 2rem;
+  border: 2px solid rgba(var(--alura-accent-rgb, 0,230,160), 0.2);
+}
+
+.call-overlay__participant--local .call-overlay__avatar-initials {
+  font-size: 1.25rem;
+}
+
+.call-overlay__participant-name {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--alura-text-primary, #F2FFF8);
+  opacity: 0.85;
+  letter-spacing: 0.01em;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.call-overlay__badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 10px;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-weight: 600;
+}
+
+.call-overlay__badge--muted,
+.call-overlay__badge--deafened {
+  background: rgba(255, 80, 80, 0.15);
+  color: #ff7b7b;
+}
+
+/* â”€â”€ PiP local (modo vÃ­deo) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+.call-overlay__local-pip {
+  position: absolute;
+  bottom: 120px;
+  right: 20px;
+  width: 160px;
+  height: 90px;
+  border-radius: 10px;
+  overflow: hidden;
+  border: 1px solid rgba(var(--alura-accent-rgb, 0,230,160), 0.2);
+  box-shadow: 0 8px 24px rgba(0,0,0,0.5);
+  z-index: 2;
+}
+
+.call-overlay__local-video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transform: scaleX(-1);
+}
+
+.call-overlay__pip-badge {
+  position: absolute;
+  bottom: 4px;
+  left: 4px;
+  background: rgba(255,60,60,0.8);
+  color: white;
+  border-radius: 4px;
+  padding: 2px 4px;
+  display: flex;
+  align-items: center;
+}
+
+/* â”€â”€ Status / DuraÃ§Ã£o â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+.call-overlay__status {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.call-overlay__status-label {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--alura-text-muted, #789487);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.04em;
+}
+
+.call-overlay__status-label--calling {
+  color: var(--alura-accent, #00E6A0);
+  animation: blink-text 1.4s ease-in-out infinite;
+}
+
+@keyframes blink-text {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.4; }
+}
+
+/* â”€â”€ Barra de controles â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+.call-overlay__controls {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: rgba(var(--alura-navigation-rgb, 0,27,11), 0.85);
+  border: 1px solid rgba(var(--alura-accent-rgb, 0,230,160), 0.12);
+  border-radius: 16px;
+  padding: 10px 16px;
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+}
+
+.call-ctrl {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 10px 14px;
+  border-radius: 10px;
+  border: none;
+  background: transparent;
+  color: var(--alura-text-muted, #789487);
+  cursor: pointer;
+  transition: all 0.15s ease;
+  min-width: 60px;
+}
+
+.call-ctrl:hover {
+  background: rgba(var(--alura-accent-rgb, 0,230,160), 0.08);
+  color: var(--alura-text-primary, #F2FFF8);
+}
+
+.call-ctrl__label {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  color: inherit;
+}
+
+.call-ctrl--active {
+  background: rgba(255, 80, 80, 0.12);
+  color: #ff7b7b !important;
+  border: 1px solid rgba(255, 80, 80, 0.25);
+}
+
+.call-ctrl--cam-on {
+  background: rgba(var(--alura-accent-rgb, 0,230,160), 0.1);
+  color: var(--alura-accent, #00E6A0) !important;
+  border: 1px solid rgba(var(--alura-accent-rgb, 0,230,160), 0.2);
+}
+
+.call-ctrl--screen-on {
+  background: rgba(100, 160, 255, 0.1);
+  color: #88aaff !important;
+  border: 1px solid rgba(100, 160, 255, 0.2);
+}
+
+.call-ctrl--sb-on {
+  background: rgba(255, 200, 60, 0.1);
+  color: #ffc83c !important;
+  border: 1px solid rgba(255, 200, 60, 0.2);
+}
+
+.call-ctrl--hangup {
+  background: rgba(255, 60, 60, 0.12);
+  color: #ff6b6b !important;
+  border: 1px solid rgba(255, 60, 60, 0.2);
+}
+
+.call-ctrl--hangup:hover {
+  background: rgba(255, 60, 60, 0.22);
+  border-color: rgba(255, 60, 60, 0.4);
+}
+
+.call-ctrl--accept {
+  background: rgba(var(--alura-accent-rgb, 57, 255, 136), 0.15);
+  color: var(--alura-accent, #39FF88) !important;
+  border: 1px solid rgba(var(--alura-accent-rgb, 57, 255, 136), 0.3);
+}
+
+.call-ctrl--accept:hover {
+  background: rgba(var(--alura-accent-rgb, 57, 255, 136), 0.28);
+  border-color: rgba(var(--alura-accent-rgb, 57, 255, 136), 0.5);
+  transform: scale(1.05);
+}
+
+.call-ctrl-divider {
+  width: 1px;
+  height: 36px;
+  background: rgba(var(--alura-accent-rgb, 0,230,160), 0.08);
+  margin: 0 4px;
+}
+
+/* ── Soundboard panel (in-call) ────────────────────────────────────────── */
+.call-sb-panel {
+  position: absolute;
+  bottom: 110px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 60;
+  width: 380px;
+  max-width: 90vw;
+  background: rgba(var(--alura-navigation-rgb, 0,27,11), 0.97);
+  border: 1px solid rgba(var(--alura-accent-rgb, 0,230,160), 0.25);
+  border-radius: 16px;
+  overflow: hidden;
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  box-shadow: 0 20px 50px rgba(0,0,0,0.8), 0 0 25px rgba(57,255,136,0.15);
+  animation: sb-enter 0.2s cubic-bezier(0.34,1.56,0.64,1);
+}
+
+@keyframes sb-enter {
+  from { opacity: 0; transform: translateX(-50%) translateY(12px) scale(0.95); }
+  to   { opacity: 1; transform: translateX(-50%) translateY(0) scale(1); }
+}
+
+.call-sb-panel__header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 14px 10px;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--alura-text-secondary, #B8CEC2);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  border-bottom: 1px solid rgba(var(--alura-accent-rgb, 0,230,160), 0.08);
+}
+
+.call-sb-panel__close {
+  margin-left: auto;
+  background: none;
+  border: none;
+  color: var(--alura-text-disabled, #496356);
+  cursor: pointer;
+  display: flex;
+  padding: 2px;
+  border-radius: 4px;
+  transition: color 0.15s;
+}
+.call-sb-panel__close:hover { color: var(--alura-text-primary, #F2FFF8); }
+
+.call-sb-panel__search {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border-bottom: 1px solid rgba(var(--alura-accent-rgb, 0,230,160), 0.06);
+  color: var(--alura-text-disabled, #496356);
+}
+
+.call-sb-panel__search input {
+  flex: 1;
+  background: none;
+  border: none;
+  outline: none;
+  font-size: 12px;
+  color: var(--alura-text-primary, #F2FFF8);
+}
+.call-sb-panel__search input::placeholder { color: var(--alura-text-disabled, #496356); }
+
+.call-sb-panel__grid {
+  padding: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  max-height: 280px;
+  overflow-y: auto;
+}
+
+.call-sb-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  border-radius: 8px;
+  transition: background 0.12s;
+}
+.call-sb-item:hover { background: rgba(var(--alura-accent-rgb, 0,230,160), 0.06); }
+.call-sb-item--playing { background: rgba(var(--alura-accent-rgb, 0,230,160), 0.1); }
+
+.call-sb-item__play {
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  border: 1px solid rgba(var(--alura-accent-rgb, 0,230,160), 0.2);
+  background: rgba(var(--alura-accent-rgb, 0,230,160), 0.08);
+  color: var(--alura-accent, #00E6A0);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: all 0.12s;
+}
+.call-sb-item__play:hover { background: rgba(var(--alura-accent-rgb, 0,230,160), 0.18); }
+.call-sb-item__play:disabled { opacity: 0.4; cursor: default; }
+
+.call-sb-item__name {
+  flex: 1;
+  font-size: 12px;
+  color: var(--alura-text-secondary, #B8CEC2);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.call-sb-item__fav {
+  background: none;
+  border: none;
+  color: var(--alura-text-disabled, #496356);
+  cursor: pointer;
+  display: flex;
+  padding: 2px;
+  transition: color 0.12s;
+}
+.call-sb-item__fav:hover { color: var(--alura-text-secondary, #B8CEC2); }
+.call-sb-item__fav--active { color: #ff7b7b; }
+
+

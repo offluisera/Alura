@@ -1,0 +1,16 @@
+node_modules/
+.turbo
+.next
+dist/
+build/
+release-builds/
+apps/desktop/release-builds/
+_build/
+deps/
+.elixir_ls/
+coverage/
+*.log
+.DS_Store
+.env
+.env.local
+.env.*.local
