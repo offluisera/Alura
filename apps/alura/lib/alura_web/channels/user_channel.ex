@@ -9,4 +9,10 @@ defmodule AluraWeb.UserChannel do
       {:error, %{reason: "unauthorized"}}
     end
   end
+
+  @impl true
+  def handle_in("signal", payload, socket) do
+    push(socket, "signal", payload)
+    {:reply, :ok, socket}
+  end
 end
