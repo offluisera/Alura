@@ -1902,8 +1902,8 @@ export function Settings() {
       {/* Conteúdo com Sidebar de Abas e Painel Central */}
       <div className="flex flex-1 overflow-hidden p-6 lg:p-8 gap-8 w-full max-w-[1440px] mx-auto">
 
-        {/* Sidebar de Configurações */}
-        <div className="w-[240px] shrink-0 flex flex-col justify-between">
+        {/* Sidebar de Configurações com Barra de Rolagem */}
+        <div className="w-[240px] shrink-0 flex flex-col h-full overflow-y-auto custom-scrollbar pr-2 pb-6 select-none">
           <div className="space-y-1">
             <span className="text-[11px] font-bold text-alura-textDisabled uppercase tracking-wider px-3 mb-2 block">
               Configurações de Usuário
@@ -2150,7 +2150,7 @@ export function Settings() {
           </div>
 
           {/* Botão de Logout Rápido com Confirmação Customizada */}
-          <div className="pt-4 border-t border-alura-border/40">
+          <div className="pt-4 border-t border-alura-border/40 mt-auto shrink-0">
             <button
               onClick={handleLogoutClick}
               className="w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-[13px] font-medium text-alura-danger/80 hover:text-alura-danger hover:bg-alura-danger/10 border border-transparent hover:border-alura-danger/20 transition-colors cursor-pointer"
