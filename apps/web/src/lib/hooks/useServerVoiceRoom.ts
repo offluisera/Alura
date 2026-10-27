@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
 import { supabase } from '../supabase'
 import { CleanvoiceService } from '../services/CleanvoiceService'
+import { AluraCrispProcessor } from '../audio/AluraCrispProcessor'
 import { SoundService } from '../services/SoundService'
 import { MyInstantsService } from '../services/MyInstantsService'
 
@@ -112,7 +113,13 @@ export function useServerVoiceRoom(user: any, profile: any, showToast?: (toast: 
   const [remoteSpeakingUsers, setRemoteSpeakingUsers] = useState<Record<string, boolean>>({})
 
   const [voiceNoiseFilter, setVoiceNoiseFilter] = useState<string>(() => {
-    return localStorage.getItem('alura_voice_noise_filter') || 'cleanvoice'
+    // Usa a mesma chave das Configurações/chamadas 1:1 e migra ids legados (krisp/cleanvoice)
+    try {
+      const saved = localStorage.getItem('alura_noise_suppression') || localStorage.getItem('alura_voice_noise_filter')
+      return AluraCrispProcessor.normalizeProfile(saved || 'alura_crisp_smart')
+    } catch {
+      return 'alura_crisp_smart'
+    }
   })
 
   // Refs para manter valores síncronos sem disparar recriação de canais Supabase
@@ -783,7 +790,7 @@ export function useServerVoiceRoom(user: any, profile: any, showToast?: (toast: 
 
           let effectiveStream = rawStream
           try {
-            if (voiceNoiseFilter === 'cleanvoice' || voiceNoiseFilter === 'krisp') {
+            if (AluraCrispProcessor.usesDsp(voiceNoiseFilter)) {
               const { filteredStream, cleanup } = CleanvoiceService.applyFilterChain(rawStream, voiceNoiseFilter)
               effectiveStream = filteredStream
               voiceLiveFilterCleanupRef.current = cleanup
@@ -914,7 +921,17 @@ export function useServerVoiceRoom(user: any, profile: any, showToast?: (toast: 
           video: false,
         })
         rawAudioStreamRef.current = rawStream
-        setLocalAudioStream(rawStream)
+        let effectiveStream = rawStream
+        try {
+          if (AluraCrispProcessor.usesDsp(voiceNoiseFilter)) {
+            const { filteredStream, cleanup } = CleanvoiceService.applyFilterChain(rawStream, voiceNoiseFilter)
+            effectiveStream = filteredStream
+            voiceLiveFilterCleanupRef.current = cleanup
+          }
+        } catch {
+          effectiveStream = rawStream
+        }
+        setLocalAudioStream(effectiveStream)
         setIsLocalAudioMuted(false)
         isLocalAudioMutedRef.current = false
         SoundService.play('unmute')
@@ -1057,8 +1074,13 @@ export function useServerVoiceRoom(user: any, profile: any, showToast?: (toast: 
 
   // Alterar filtro DSP em tempo real
   const changeNoiseFilter = useCallback(async (newFilter: string) => {
+    newFilter = AluraCrispProcessor.normalizeProfile(newFilter)
     setVoiceNoiseFilter(newFilter)
-    localStorage.setItem('alura_voice_noise_filter', newFilter)
+    try {
+      // grava nas duas chaves: Configurações e sala de voz ficam sempre sincronizadas
+      localStorage.setItem('alura_voice_noise_filter', newFilter)
+      localStorage.setItem('alura_noise_suppression', newFilter)
+    } catch {}
 
     if (localAudioStream) {
       if (voiceLiveFilterCleanupRef.current) {
@@ -1077,7 +1099,7 @@ export function useServerVoiceRoom(user: any, profile: any, showToast?: (toast: 
         rawAudioStreamRef.current = rawStream
 
         let effectiveStream = rawStream
-        if (newFilter === 'cleanvoice' || newFilter === 'krisp') {
+        if (AluraCrispProcessor.usesDsp(newFilter)) {
           const { filteredStream, cleanup } = CleanvoiceService.applyFilterChain(rawStream, newFilter)
           effectiveStream = filteredStream
           voiceLiveFilterCleanupRef.current = cleanup

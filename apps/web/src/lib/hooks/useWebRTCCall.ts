@@ -2,13 +2,14 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 import { PhoenixCallSignalingService } from '../services/PhoenixCallSignalingService'
 import type { PhoenixCallSignal as CallSignal } from '../services/PhoenixCallSignalingService'
 import { CleanvoiceService } from '../services/CleanvoiceService'
+import { AluraCrispProcessor, type AluraCrispProfile } from '../audio/AluraCrispProcessor'
 import { SoundService } from '../services/SoundService'
 
 // ─── Tipos ────────────────────────────────────────────────────────────────────
 
 export type CallState = 'idle' | 'calling' | 'ringing' | 'active' | 'ended'
 export type CallType = 'audio' | 'video'
-export type NoiseFilterLevel = 'cleanvoice' | 'krisp' | 'standard' | 'off'
+export type NoiseFilterLevel = AluraCrispProfile
 
 export interface CallParticipant {
   userId: string
@@ -74,9 +75,9 @@ export function useWebRTCCall(
   const [callDuration, setCallDuration] = useState(0)
   const [noiseFilter, setNoiseFilterState] = useState<NoiseFilterLevel>(() => {
     try {
-      return (localStorage.getItem('alura_noise_suppression') as NoiseFilterLevel) || 'krisp'
+      return (localStorage.getItem('alura_noise_suppression') as NoiseFilterLevel) || 'alura_crisp_smart'
     } catch {
-      return 'krisp'
+      return 'alura_crisp_smart'
     }
   })
 
@@ -186,18 +187,14 @@ export function useWebRTCCall(
 
       // 2. Obtém novo stream de microfone
       const rawStream = await navigator.mediaDevices.getUserMedia({
-        audio: {
-          echoCancellation: true,
-          noiseSuppression: level !== 'off',
-          autoGainControl: true,
-        },
+        audio: AluraCrispProcessor.getAudioConstraints(level),
       })
 
       let finalAudioTrack = rawStream.getAudioTracks()[0]
       if (!finalAudioTrack) return
 
-      // 3. Aplica o Noise Gate do Cleanvoice se ativo
-      if (level !== 'off') {
+      // 3. Aplica a cadeia DSP Alura Crisp (só nos modos Crisp)
+      if (AluraCrispProcessor.usesDsp(level)) {
         const { filteredStream, setMuted, cleanup } = CleanvoiceService.createLiveFilter(rawStream, level)
         liveFilterCleanupRef.current = cleanup
         liveFilterSetMutedRef.current = setMuted
@@ -405,11 +402,7 @@ export function useWebRTCCall(
       }
 
       const rawStream = await navigator.mediaDevices.getUserMedia({
-        audio: {
-          echoCancellation: true,
-          noiseSuppression: noiseFilter !== 'off',
-          autoGainControl: true,
-        },
+        audio: AluraCrispProcessor.getAudioConstraints(noiseFilter),
         video: type === 'video',
       })
 
@@ -420,7 +413,7 @@ export function useWebRTCCall(
 
       let finalStream = rawStream
 
-      if (noiseFilter !== 'off') {
+      if (AluraCrispProcessor.usesDsp(noiseFilter)) {
         const { filteredStream, setMuted, cleanup } = CleanvoiceService.createLiveFilter(rawStream, noiseFilter)
         liveFilterCleanupRef.current = cleanup
         liveFilterSetMutedRef.current = setMuted

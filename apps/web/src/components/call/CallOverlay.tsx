@@ -93,7 +93,7 @@ export function CallOverlay({
   remoteParticipant,
   myName = 'Você',
   myAvatar,
-  noiseFilter = 'krisp',
+  noiseFilter = 'alura_crisp_smart',
   setNoiseFilter,
   hangUp,
   toggleMute,

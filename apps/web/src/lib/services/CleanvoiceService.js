@@ -5,7 +5,9 @@ import { AluraCrispProcessor } from '../audio/AluraCrispProcessor'
  * Integração com o motor nativo AluraCrispProcessor e API Cleanvoice v2.
  */
 
-export const CLEANVOICE_API_KEY = 'cvk_i36dBD13eqg.P3K6R78lYIYPkfyz2-MbT06OMcIFiC6FNFfFGgRvj_A'
+// ATENÇÃO: nunca coloque a chave no código. Qualquer variável VITE_* vai para o bundle público do app.
+// Use só em dev local (.env, fora do git); em produção chame a Cleanvoice por um backend seu.
+export const CLEANVOICE_API_KEY = import.meta.env?.VITE_CLEANVOICE_API_KEY || ''
 export const CLEANVOICE_BASE_URL = 'https://api.cleanvoice.ai/v2'
 
 /**
@@ -16,6 +18,9 @@ export class CleanvoiceService {
    * Envia uma requisição autenticada para a API v2
    */
   static async request(endpoint, options = {}) {
+    if (!CLEANVOICE_API_KEY) {
+      throw new Error('[Cleanvoice] Chave de API não configurada (VITE_CLEANVOICE_API_KEY).')
+    }
     const url = `${CLEANVOICE_BASE_URL}${endpoint.startsWith('/') ? endpoint : `/${endpoint}`}`
     const headers = {
       'X-API-Key': CLEANVOICE_API_KEY,

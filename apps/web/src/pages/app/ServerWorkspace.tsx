@@ -1216,9 +1216,10 @@ export function ServerWorkspace() {
   }
 
   const NOISE_FILTER_MODES = [
-    { id: 'cleanvoice', name: 'Cleanvoice DSP', desc: 'Filtro Alura com HighPass, Notch 60Hz e Noise Gate', badge: 'Recomendado' },
-    { id: 'krisp', name: 'Krisp Studio', desc: 'Redução avançada de eco e ruído de fundo' },
-    { id: 'standard', name: 'Padrão do Sistema', desc: 'Processamento nativo do navegador/Chromium' },
+    { id: 'alura_crisp_smart', name: 'Alura Crisp Inteligente', desc: 'Equilíbrio contra teclado mecânico, cliques e ventilador', badge: 'Recomendado' },
+    { id: 'alura_crisp_studio', name: 'Alura Crisp Estúdio', desc: 'Máxima fidelidade vocal, atenuação suave do ruído' },
+    { id: 'alura_crisp_aggressive', name: 'Alura Crisp Agressivo', desc: 'Isolamento forte para ambientes barulhentos' },
+    { id: 'standard', name: 'Padrão do Sistema', desc: 'Apenas supressão nativa do navegador/Chromium' },
     { id: 'passthrough', name: 'Externo / Passthrough', desc: 'Ideal para Krisp Desktop, Elgato Wavelink ou RTX Voice' },
     { id: 'off', name: 'Desativado', desc: 'Sem nenhum filtro ou redução de ruído' },
   ]
@@ -2758,10 +2759,12 @@ export function ServerWorkspace() {
                   >
                     <Sparkles size={16} />
                     <span className="hidden sm:inline">
-                      {voiceNoiseFilter === 'krisp'
-                        ? 'Krisp'
-                        : voiceNoiseFilter === 'cleanvoice'
-                        ? 'Cleanvoice'
+                      {voiceNoiseFilter === 'alura_crisp_smart'
+                        ? 'Crisp'
+                        : voiceNoiseFilter === 'alura_crisp_studio'
+                        ? 'Crisp Estúdio'
+                        : voiceNoiseFilter === 'alura_crisp_aggressive'
+                        ? 'Crisp Agressivo'
                         : voiceNoiseFilter === 'passthrough'
                         ? 'Passthrough'
                         : voiceNoiseFilter === 'standard'
