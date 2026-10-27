@@ -41,6 +41,8 @@ export interface UseWebRTCCallReturn {
   toggleCamera: () => Promise<void>
   startScreenShareWithSource: (sourceId?: string, shareAudio?: boolean) => Promise<void>
   stopScreenShare: () => void
+  streamViewers: Array<{ userId: string; name: string; avatar?: string }>
+  sendStreamViewerSignal: (action: 'join' | 'leave', myInfo: { name: string; avatar?: string }) => void
 }
 
 // ─── ICE Servers ──────────────────────────────────────────────────────────────
@@ -68,6 +70,7 @@ export function useWebRTCCall(
   const [isCameraOn, setIsCameraOn] = useState(false)
   const [isSharingScreen, setIsSharingScreen] = useState(false)
   const [isRemoteSharingScreen, setIsRemoteSharingScreen] = useState(false)
+  const [streamViewers, setStreamViewers] = useState<Array<{ userId: string; name: string; avatar?: string }>>([])
   const [callDuration, setCallDuration] = useState(0)
   const [noiseFilter, setNoiseFilterState] = useState<NoiseFilterLevel>(() => {
     try {
@@ -93,6 +96,11 @@ export function useWebRTCCall(
   const rawStreamRef = useRef<MediaStream | null>(null)
   const liveFilterCleanupRef = useRef<(() => void) | null>(null)
   const liveFilterSetMutedRef = useRef<((m: boolean) => void) | null>(null)
+  const screenMixerCtxRef = useRef<AudioContext | null>(null)
+  const mixerMicGainRef = useRef<GainNode | null>(null)
+  const mixerScreenGainRef = useRef<GainNode | null>(null)
+  const originalMicTrackRef = useRef<MediaStreamTrack | null>(null)
+  const mixedAudioTrackRef = useRef<MediaStreamTrack | null>(null)
 
   callStateRef.current = callState
   onIncomingCallRef.current = onIncomingCall
@@ -117,7 +125,7 @@ export function useWebRTCCall(
     signalingRef.current = new PhoenixCallSignalingService(myUserId)
 
     signalingRef.current.listenForIncomingCalls((signal) => {
-      if (callStateRef.current === 'idle') {
+      if (callStateRef.current === 'idle' || callStateRef.current === 'ended') {
         setCallId(signal.call_id)
         setCallState('ringing')
         const callerName = (signal.payload?.callerName as string) || 'Usuário'
@@ -230,6 +238,18 @@ export function useWebRTCCall(
     (currentCallId: string, toUserId: string): RTCPeerConnection => {
       const pc = new RTCPeerConnection({ iceServers: ICE_SERVERS })
 
+      // Garante transceivers de áudio (sendrecv) e vídeo inicial como receptor apenas (recvonly) para não gerar stream fantasma
+      try {
+        if (!pc.getTransceivers().some((t) => t.receiver.track.kind === 'audio')) {
+          pc.addTransceiver('audio', { direction: 'sendrecv' })
+        }
+        if (!pc.getTransceivers().some((t) => t.receiver.track.kind === 'video')) {
+          pc.addTransceiver('video', { direction: 'recvonly' })
+        }
+      } catch (err) {
+        console.warn('[WebRTC] Falha ao pré-alocar transceivers:', err)
+      }
+
       pc.onicecandidate = async (event) => {
         if (event.candidate && signalingRef.current) {
           await signalingRef.current.send(currentCallId, toUserId, 'ice_candidate', {
@@ -239,16 +259,22 @@ export function useWebRTCCall(
       }
 
       pc.ontrack = (event) => {
-        if (event.streams && event.streams[0]) {
-          setRemoteStream(event.streams[0])
-        } else {
+        console.log('[WebRTC] ontrack recebido:', event.track.kind, event.track.id)
+        event.track.enabled = true
+        const currentTracks = remoteStreamRef.current.getTracks()
+        if (!currentTracks.some((t) => t.id === event.track.id)) {
           remoteStreamRef.current.addTrack(event.track)
-          setRemoteStream(new MediaStream(remoteStreamRef.current.getTracks()))
         }
+        const updated = new MediaStream(remoteStreamRef.current.getTracks())
+        setRemoteStream(updated)
+
         if (event.track.kind === 'video') {
-          setIsRemoteSharingScreen(true)
+          // Apenas marca compartilhamento se explicitamente sinalizado ou chamada de vídeo ativa
           event.track.onended = () => {
+            console.log('[WebRTC] Track de vídeo remota finalizada (onended).')
             setIsRemoteSharingScreen(false)
+            remoteStreamRef.current.removeTrack(event.track)
+            setRemoteStream(new MediaStream(remoteStreamRef.current.getTracks()))
           }
         }
       }
@@ -270,12 +296,42 @@ export function useWebRTCCall(
     const pc = pcRef.current
     if (!pc) return
 
+    if (signal.type === 'stream_viewer_join') {
+      const viewer = {
+        userId: signal.from_user_id,
+        name: (signal.payload?.name as string) || 'Usuário',
+        avatar: signal.payload?.avatar as string | undefined,
+      }
+      setStreamViewers((prev) => {
+        if (prev.some((v) => v.userId === viewer.userId)) return prev
+        return [...prev, viewer]
+      })
+    }
+
+    if (signal.type === 'stream_viewer_leave') {
+      setStreamViewers((prev) => prev.filter((v) => v.userId !== signal.from_user_id))
+    }
+
     if (signal.type === 'screen_share_start') {
       setIsRemoteSharingScreen(true)
+      const vTrack = pc.getReceivers().find((r) => r.track && r.track.kind === 'video')?.track
+      if (vTrack) {
+        vTrack.enabled = true
+        if (!remoteStreamRef.current.getTracks().some((t) => t.id === vTrack.id)) {
+          remoteStreamRef.current.addTrack(vTrack)
+        }
+        setRemoteStream(new MediaStream(remoteStreamRef.current.getTracks()))
+      }
     }
 
     if (signal.type === 'screen_share_stop') {
+      console.log('[WebRTC] Transmissão remota encerrada.')
       setIsRemoteSharingScreen(false)
+      setStreamViewers([])
+      remoteStreamRef.current.getVideoTracks().forEach((vt) => {
+        remoteStreamRef.current.removeTrack(vt)
+      })
+      setRemoteStream(new MediaStream(remoteStreamRef.current.getTracks()))
     }
 
     if (signal.type === 'answer') {
@@ -291,6 +347,9 @@ export function useWebRTCCall(
 
     if (signal.type === 'offer') {
       try {
+        if (signal.payload?.isScreenShare) {
+          setIsRemoteSharingScreen(true)
+        }
         const remoteDesc = new RTCSessionDescription(signal.payload.sdp as RTCSessionDescriptionInit)
         await pc.setRemoteDescription(remoteDesc)
         for (const candidate of pendingCandidatesRef.current) {
@@ -299,10 +358,20 @@ export function useWebRTCCall(
         pendingCandidatesRef.current = []
         const answer = await pc.createAnswer()
         await pc.setLocalDescription(answer)
-        if (signalingRef.current && callIdRef.current && remoteParticipantRef.current) {
-          await signalingRef.current.send(callIdRef.current, remoteParticipantRef.current.userId, 'answer', {
+        const targetUserId = signal.from_user_id || remoteParticipantRef.current?.userId
+        const targetCallId = signal.call_id || callIdRef.current
+        if (signalingRef.current && targetCallId && targetUserId) {
+          await signalingRef.current.send(targetCallId, targetUserId, 'answer', {
             sdp: answer,
           })
+        }
+        const vTrack = pc.getReceivers().find((r) => r.track && r.track.kind === 'video')?.track
+        if (vTrack) {
+          vTrack.enabled = true
+          if (!remoteStreamRef.current.getTracks().some((t) => t.id === vTrack.id)) {
+            remoteStreamRef.current.addTrack(vTrack)
+          }
+          setRemoteStream(new MediaStream(remoteStreamRef.current.getTracks()))
         }
       } catch (err) {
         console.warn('[WebRTC] Erro ao responder renegotiation offer:', err)
@@ -397,6 +466,11 @@ export function useWebRTCCall(
     setCallType(type)
     setRemoteParticipant(participant)
     setCallState('calling')
+    setIsRemoteSharingScreen(false)
+    setIsSharingScreen(false)
+    setStreamViewers([])
+    remoteStreamRef.current = new MediaStream()
+    setRemoteStream(null)
 
     try {
       const stream = await getLocalMedia(type)
@@ -434,8 +508,15 @@ export function useWebRTCCall(
 
     const type = (signal.payload.callType as CallType) || 'audio'
     setCallType(type)
+    setCallId(signal.call_id)
+    callIdRef.current = signal.call_id
     setRemoteParticipant(participant)
     setCallState('active')
+    setIsRemoteSharingScreen(false)
+    setIsSharingScreen(false)
+    setStreamViewers([])
+    remoteStreamRef.current = new MediaStream()
+    setRemoteStream(null)
 
     try {
       const stream = await getLocalMedia(type)
@@ -472,9 +553,12 @@ export function useWebRTCCall(
 
   const rejectCall = async (signal: CallSignal): Promise<void> => {
     SoundService.playCallEnd()
-    if (!signalingRef.current) return
-    await signalingRef.current.send(signal.call_id, signal.from_user_id, 'call_reject', {})
-    setCallState('idle')
+    if (signalingRef.current) {
+      await signalingRef.current.send(signal.call_id, signal.from_user_id, 'call_reject', {}).catch(() => {})
+    }
+    cleanup()
+    setCallState('ended')
+    setTimeout(() => setCallState('idle'), 1500)
     setCallId(null)
   }
 
@@ -516,8 +600,11 @@ export function useWebRTCCall(
       if (liveFilterSetMutedRef.current) {
         liveFilterSetMutedRef.current(next)
       }
-      // 4. Muta nos senders do PeerConnection
-      if (pcRef.current) {
+      // 4. Se houver mixer de tela ativo, controla o ganho do mic sem mutar o áudio do jogo/tela
+      if (mixerMicGainRef.current) {
+        mixerMicGainRef.current.gain.value = next ? 0 : 1
+      } else if (pcRef.current) {
+        // Se não houver mixer, muta diretamente os senders de áudio
         pcRef.current.getSenders().forEach((s) => {
           if (s.track && s.track.kind === 'audio') {
             s.track.enabled = !next
@@ -555,7 +642,9 @@ export function useWebRTCCall(
       if (liveFilterSetMutedRef.current) {
         liveFilterSetMutedRef.current(next)
       }
-      if (pcRef.current) {
+      if (mixerMicGainRef.current) {
+        mixerMicGainRef.current.gain.value = next ? 0 : 1
+      } else if (pcRef.current) {
         pcRef.current.getSenders().forEach((s) => {
           if (s.track && s.track.kind === 'audio') {
             s.track.enabled = !next
@@ -611,50 +700,80 @@ export function useWebRTCCall(
     if (!pc) return
 
     try {
-      let display: MediaStream
+      let display: MediaStream | null = null
 
-      // Se temos sourceId de tela ou janela do Electron
-      if (sourceId && (sourceId.startsWith('screen:') || sourceId.startsWith('window:'))) {
+      const isElectron = Boolean(
+        typeof window !== 'undefined' &&
+          ((window as any).electronIPC?.isElectron?.() ||
+            (window as any).electronAPI ||
+            (window as any).isElectron ||
+            (window as any).ipcRenderer)
+      )
+
+      if (isElectron && sourceId) {
         try {
-          display = await (navigator.mediaDevices as any).getUserMedia({
-            audio: shareAudio
-              ? {
-                  mandatory: {
-                    chromeMediaSource: 'desktop',
-                  },
-                }
-              : false,
-            video: {
-              mandatory: {
-                chromeMediaSource: 'desktop',
-                chromeMediaSourceId: sourceId,
-                minWidth: 1280,
-                maxWidth: 1920,
-                minHeight: 720,
-                maxHeight: 1080,
-                minFrameRate: 30,
-                maxFrameRate: 60,
+          const ipc = (window as any).electronIPC || (window as any).electronAPI
+          if (ipc?.invoke) {
+            await ipc.invoke('set-selected-screen-source', sourceId)
+          }
+        } catch (e) {
+          console.warn('[WebRTC] Erro ao sincronizar fonte no Electron:', e)
+        }
+      }
+
+      // Tentativa 1 (Mais estável e de alta qualidade): getDisplayMedia
+      try {
+        display = await navigator.mediaDevices.getDisplayMedia({
+          video: {
+            frameRate: { ideal: 30, max: 60 },
+          },
+          audio: shareAudio,
+        })
+      } catch (dispErr) {
+        console.warn('[WebRTC] getDisplayMedia falhou ou foi cancelado:', dispErr)
+      }
+
+      // Tentativa 2 (Fallback Electron): getUserMedia com desktopCapturer sem travas de resolução
+      if (!display && sourceId) {
+        let streamCaptured: MediaStream | null = null
+        if (shareAudio) {
+          try {
+            streamCaptured = await (navigator.mediaDevices as any).getUserMedia({
+              audio: {
+                mandatory: {
+                  chromeMediaSource: 'desktop',
+                },
               },
-            },
-          })
-        } catch (audioErr) {
-          console.warn('[WebRTC] Falha ao capturar com áudio, tentando sem áudio:', audioErr)
-          display = await (navigator.mediaDevices as any).getUserMedia({
+              video: {
+                mandatory: {
+                  chromeMediaSource: 'desktop',
+                  chromeMediaSourceId: sourceId,
+                  maxFrameRate: 60,
+                },
+              },
+            })
+          } catch (audioErr) {
+            console.warn('[WebRTC] Falha áudio desktop:', audioErr)
+          }
+        }
+
+        if (!streamCaptured) {
+          streamCaptured = await (navigator.mediaDevices as any).getUserMedia({
             audio: false,
             video: {
               mandatory: {
                 chromeMediaSource: 'desktop',
                 chromeMediaSourceId: sourceId,
+                maxFrameRate: 60,
               },
             },
           })
         }
-      } else {
-        // Modo Web ou seleção genérica
-        display = await navigator.mediaDevices.getDisplayMedia({
-          video: { frameRate: 30 },
-          audio: shareAudio,
-        })
+        display = streamCaptured
+      }
+
+      if (!display) {
+        throw new Error('Não foi possível capturar a tela selecionada.')
       }
 
       updateScreenStream(display)
@@ -673,13 +792,26 @@ export function useWebRTCCall(
       const screenVideoTrack = display.getVideoTracks()[0]
       const screenAudioTrack = display.getAudioTracks()[0]
 
-      // Injeta vídeo da tela no PeerConnection
+      console.log('[WebRTC] Compartilhamento iniciado. Tracks capturadas:', {
+        video: screenVideoTrack ? screenVideoTrack.label : null,
+        audio: screenAudioTrack ? screenAudioTrack.label : null,
+      })
+
+      // Injeta vídeo da tela no PeerConnection habilitando envio ativo (sendrecv)
       if (screenVideoTrack) {
+        const videoTransceiver = pc.getTransceivers().find((t) => t.receiver.track.kind === 'video')
+        if (videoTransceiver) {
+          videoTransceiver.direction = 'sendrecv'
+        }
+
         const sender = pc.getSenders().find((s) => s.track?.kind === 'video' || (!s.track && (s as any).kind === 'video'))
         if (sender) {
           await sender.replaceTrack(screenVideoTrack)
+        } else if (videoTransceiver && videoTransceiver.sender) {
+          await videoTransceiver.sender.replaceTrack(screenVideoTrack)
         } else {
           if (localStreamRef.current) pc.addTrack(screenVideoTrack, localStreamRef.current)
+          else pc.addTrack(screenVideoTrack, display)
         }
 
         // Renegociação WebRTC obrigatória para que o outro peer receba a track de vídeo
@@ -707,13 +839,52 @@ export function useWebRTCCall(
         }
       }
 
-      // Se houver áudio da tela (som do sistema), transmite para o peer
-      if (screenAudioTrack && localStreamRef.current) {
-        const audioSender = pc.getSenders().find((s) => s.track && s.track.kind === 'audio')
-        // Adiciona a track de áudio da tela ao stream local
-        localStreamRef.current.addTrack(screenAudioTrack)
-        if (!audioSender) {
-          pc.addTrack(screenAudioTrack, localStreamRef.current)
+      // ── Audio Mixer: Mixa áudio da tela (jogo/aplicativo) com o microfone ───
+      if (screenAudioTrack) {
+        console.log('[WebRTC] Ativando Audio Mixer para transmitir áudio do aplicativo/jogo...')
+        try {
+          const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext
+          if (AudioContextClass) {
+            const mixer = new AudioContextClass()
+            screenMixerCtxRef.current = mixer
+
+            const dest = mixer.createMediaStreamDestination()
+
+            // Conecta microfone se disponível
+            const micTrack = localStreamRef.current?.getAudioTracks()[0] || rawStreamRef.current?.getAudioTracks()[0]
+            if (micTrack) {
+              originalMicTrackRef.current = micTrack
+              const micSource = mixer.createMediaStreamSource(new MediaStream([micTrack]))
+              const micGain = mixer.createGain()
+              micGain.gain.value = isMutedRef.current ? 0 : 1
+              micSource.connect(micGain)
+              micGain.connect(dest)
+              mixerMicGainRef.current = micGain
+            }
+
+            // Conecta áudio da tela/aplicativo
+            const screenSource = mixer.createMediaStreamSource(new MediaStream([screenAudioTrack]))
+            const screenGain = mixer.createGain()
+            screenGain.gain.value = 1
+            screenSource.connect(screenGain)
+            screenGain.connect(dest)
+            mixerScreenGainRef.current = screenGain
+
+            const mixedTrack = dest.stream.getAudioTracks()[0]
+            mixedAudioTrackRef.current = mixedTrack
+
+            // Injeta a track de áudio mixada no sender do PeerConnection
+            const audioSender = pc.getSenders().find((s) => s.track?.kind === 'audio' || (!s.track && (s as any).kind === 'audio'))
+            if (audioSender) {
+              await audioSender.replaceTrack(mixedTrack)
+              console.log('[WebRTC] Track de áudio mixado (mic + som do app) atribuída ao audioSender com sucesso!')
+            } else {
+              pc.addTrack(mixedTrack, localStreamRef.current || new MediaStream())
+              console.log('[WebRTC] Track de áudio mixado adicionada ao PC.')
+            }
+          }
+        } catch (mixErr) {
+          console.error('[WebRTC] Erro ao inicializar Audio Mixer:', mixErr)
         }
       }
     } catch (err) {
@@ -727,6 +898,25 @@ export function useWebRTCCall(
     updateScreenStream(null)
     setIsSharingScreen(false)
 
+    // Restaura microfone original no sender
+    if (pc && originalMicTrackRef.current) {
+      const audioSender = pc.getSenders().find((s) => s.track?.kind === 'audio' || (!s.track && (s as any).kind === 'audio'))
+      if (audioSender) {
+        await audioSender.replaceTrack(originalMicTrackRef.current).catch(() => {})
+        console.log('[WebRTC] Microfone original restaurado após transmissão de tela.')
+      }
+    }
+
+    // Fecha e limpa o Audio Mixer
+    if (screenMixerCtxRef.current) {
+      screenMixerCtxRef.current.close().catch(() => {})
+      screenMixerCtxRef.current = null
+      mixerMicGainRef.current = null
+      mixerScreenGainRef.current = null
+      originalMicTrackRef.current = null
+      mixedAudioTrackRef.current = null
+    }
+
     // Notifica participante remoto que encerramos compartilhamento
     if (signalingRef.current && callIdRef.current && remoteParticipantRef.current) {
       signalingRef.current.send(
@@ -737,14 +927,24 @@ export function useWebRTCCall(
       ).catch(() => {})
     }
 
-    // Restaura câmera se estava ligada antes
-    if (isCameraOn && localStreamRef.current && pc) {
-      try {
-        const camStream = await navigator.mediaDevices.getUserMedia({ video: true })
-        const camTrack = camStream.getVideoTracks()[0]
-        const sender = pc.getSenders().find((s) => s.track?.kind === 'video')
-        if (sender && camTrack) await sender.replaceTrack(camTrack)
-      } catch {}
+    // Restaura câmera se estava ligada antes ou desanexa track de vídeo sem destruir o transceiver
+    if (pc) {
+      const videoSender = pc.getSenders().find((s) => s.track?.kind === 'video' || (!s.track && (s as any).kind === 'video'))
+      if (videoSender) {
+        if (isCameraOn) {
+          try {
+            const camStream = await navigator.mediaDevices.getUserMedia({ video: true })
+            const camTrack = camStream.getVideoTracks()[0]
+            if (camTrack) await videoSender.replaceTrack(camTrack)
+          } catch {}
+        } else {
+          try {
+            await videoSender.replaceTrack(null)
+          } catch (e) {
+            console.warn('[WebRTC] Erro ao desanexar vídeo:', e)
+          }
+        }
+      }
     }
   }, [isCameraOn])
 
@@ -756,6 +956,14 @@ export function useWebRTCCall(
       liveFilterCleanupRef.current = null
     }
     liveFilterSetMutedRef.current = null
+    if (screenMixerCtxRef.current) {
+      screenMixerCtxRef.current.close().catch(() => {})
+      screenMixerCtxRef.current = null
+      mixerMicGainRef.current = null
+      mixerScreenGainRef.current = null
+      originalMicTrackRef.current = null
+      mixedAudioTrackRef.current = null
+    }
     rawStreamRef.current?.getTracks().forEach((t) => t.stop())
     rawStreamRef.current = null
     localStreamRef.current?.getTracks().forEach((t) => t.stop())
@@ -774,8 +982,25 @@ export function useWebRTCCall(
     setIsCameraOn(false)
     setIsSharingScreen(false)
     setIsRemoteSharingScreen(false)
+    setStreamViewers([])
     setCallDuration(0)
   }, [])
+
+  // ── Sinalização de Espectador de Transmissão ──────────────────────────────
+  const sendStreamViewerSignal = useCallback(
+    (action: 'join' | 'leave', myInfo: { name: string; avatar?: string }) => {
+      if (signalingRef.current && callIdRef.current && remoteParticipantRef.current) {
+        const signalType = action === 'join' ? 'stream_viewer_join' : 'stream_viewer_leave'
+        signalingRef.current
+          .send(callIdRef.current, remoteParticipantRef.current.userId, signalType as any, {
+            name: myInfo.name,
+            avatar: myInfo.avatar,
+          })
+          .catch(() => {})
+      }
+    },
+    []
+  )
 
   return {
     callState,
@@ -802,5 +1027,7 @@ export function useWebRTCCall(
     toggleCamera,
     startScreenShareWithSource,
     stopScreenShare,
+    streamViewers,
+    sendStreamViewerSignal,
   }
 }

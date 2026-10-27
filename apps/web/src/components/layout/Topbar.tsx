@@ -1,12 +1,16 @@
 import { useState, useEffect, useRef } from "react"
 import { useNavigate } from "react-router-dom"
 import { supabase } from "../../lib/supabase"
-import { Search, Bell, LogOut, Heart, MessageSquare, UserPlus, FileText, Check, ChevronDown, ChevronRight, User, Users, Server, Settings, HelpCircle, Activity, X, Loader2 } from "lucide-react"
+import { Search, Bell, LogOut, Heart, MessageSquare, UserPlus, FileText, Check, ChevronDown, ChevronRight, ChevronLeft, User, Users, Server, Settings, HelpCircle, Activity, X, Loader2 } from "lucide-react"
 import { Avatar, AvatarFallback } from "@alura/ui"
+import { NotificationCenterModal } from "../notifications/NotificationCenterModal"
+import { usePresence } from "../../contexts/PresenceContext"
 
 interface TopbarProps {
   user: any
   profile?: any
+  isSidebarCollapsed?: boolean
+  onToggleSidebar?: () => void
 }
 
 interface Notification {
@@ -18,8 +22,10 @@ interface Notification {
   created_at: string
 }
 
-export function Topbar({ user, profile }: TopbarProps) {
+export function Topbar({ user, profile, isSidebarCollapsed = false, onToggleSidebar }: TopbarProps) {
+  const { getUserStatus } = usePresence()
   const [showNotifications, setShowNotifications] = useState(false)
+  const [showNotificationCenter, setShowNotificationCenter] = useState(false)
   const [showProfileDropdown, setShowProfileDropdown] = useState(false)
   const [notifications, setNotifications] = useState<Notification[]>([])
   const [unreadCount, setUnreadCount] = useState(0)
@@ -155,8 +161,26 @@ export function Topbar({ user, profile }: TopbarProps) {
       await markAsRead(n.id)
     }
     setShowNotifications(false)
+
     if (n.link) {
-      navigate(n.link)
+      let target = n.link
+      if (target.startsWith('/app/post/') || target.startsWith('/post/')) {
+        navigate('/')
+        return
+      }
+      if (target.startsWith('/app/')) {
+        target = target.replace('/app/', '/')
+      }
+      navigate(target)
+      return
+    }
+
+    if (n.type === 'like' || n.type === 'comment' || n.type === 'friend_post') {
+      navigate('/')
+    } else if (n.type === 'friend_request') {
+      navigate('/requests')
+    } else if (n.type === 'dm' || n.type === 'message') {
+      navigate('/messages')
     }
   }
 
@@ -191,7 +215,8 @@ export function Topbar({ user, profile }: TopbarProps) {
     <header className="h-16 pl-6 pr-[140px] w-full flex items-center justify-between bg-alura-background border-b border-alura-border shadow-[0_4px_20px_rgba(0,0,0,0.5)] z-30 shrink-0">
       
       {/* Busca Global */}
-      <div className="relative w-full max-w-[480px]" ref={searchRef}>
+      <div className="flex items-center gap-3 w-full max-w-[540px]">
+        <div className="relative flex-1" ref={searchRef}>
         <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none">
           {isSearching ? (
             <Loader2 className="h-4 w-4 text-alura-accent animate-spin" />
@@ -260,11 +285,16 @@ export function Topbar({ user, profile }: TopbarProps) {
                               </AvatarFallback>
                             )}
                           </Avatar>
-                          <div className={`absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full ring-2 ring-alura-surface1 ${
-                            u.status === 'online' ? 'bg-alura-success' :
-                            u.status === 'dnd' ? 'bg-alura-danger' :
-                            u.status === 'idle' ? 'bg-amber-500' : 'bg-zinc-500'
-                          }`} />
+                          {(() => {
+                            const uStatus = getUserStatus(u)
+                            return (
+                              <div className={`absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full ring-2 ring-alura-surface1 ${
+                                uStatus === 'online' ? 'bg-alura-success' :
+                                uStatus === 'dnd' ? 'bg-alura-danger' :
+                                uStatus === 'idle' ? 'bg-amber-500' : 'bg-zinc-500'
+                              }`} />
+                            )
+                          })()}
                         </div>
                         <div className="flex flex-col min-w-0 flex-1">
                           <div className="flex items-center gap-2">
@@ -335,185 +365,298 @@ export function Topbar({ user, profile }: TopbarProps) {
             </div>
           </div>
         )}
+        </div>
       </div>
 
-      {/* Ações e Usuário */}
-      <div className="flex items-center space-x-6 ml-6">
+      {/* Ações e Menus do Topo (compatíveis com alura-menus-topo.html e personalização) */}
+      <div className="flex items-center space-x-3 ml-6">
         
-        <div className="flex items-center space-x-2">
-          <div className="relative">
-            <button onClick={() => setShowNotifications(!showNotifications)} className="relative p-2 text-alura-textMuted hover:text-alura-textPrimary hover:bg-alura-hover rounded-xl transition-colors">
-              <Bell className="w-5 h-5" />
-              {unreadCount > 0 && (
-                <div className="absolute top-1.5 right-2 w-2 h-2 bg-alura-accent rounded-full ring-2 ring-alura-background shadow-[0_0_8px_rgba(0,223,160,0.6)]"></div>
-              )}
-            </button>
-            
-            {showNotifications && (
-              <div className="absolute top-full mt-3 right-0 w-[360px] bg-alura-surface1 border border-alura-borderStrong shadow-2xl rounded-xl z-50 overflow-hidden animate-in fade-in zoom-in-95 duration-200">
-                 <div className="flex items-center justify-between p-4 border-b border-alura-border/50 bg-alura-surface2">
-                   <h3 className="text-white font-semibold text-[15px]">Notificações</h3>
-                   {unreadCount > 0 && (
-                     <button onClick={markAllAsRead} className="text-alura-textMuted hover:text-alura-accent text-[12px] font-medium transition-colors flex items-center gap-1"><Check className="w-3.5 h-3.5" /> Marcar lidas</button>
-                   )}
-                 </div>
-                 <div className="max-h-[400px] overflow-y-auto custom-scrollbar">
-                   {notifications.length === 0 ? (
-                     <div className="p-8 text-center text-alura-textMuted text-[13px]">Nenhuma notificação por aqui.</div>
-                   ) : (
-                     notifications.map(n => (
-                       <div key={n.id} onClick={() => handleNotificationClick(n)} className={`p-4 border-b border-alura-border/30 flex items-start gap-3 transition-colors cursor-pointer ${!n.is_read ? 'bg-alura-selected hover:bg-alura-hover' : 'hover:bg-alura-surface2'}`}>
-                         <div className="mt-0.5 shrink-0">{getNotificationIcon(n.type)}</div>
-                         <div className="flex flex-col flex-1 overflow-hidden">
-                           <span className={`text-[13px] leading-snug ${!n.is_read ? 'text-alura-textPrimary font-medium' : 'text-alura-textSecondary'}`}>{n.message}</span>
-                           <span className="text-[11px] text-alura-textMuted mt-1">{formatTime(n.created_at)}</span>
-                         </div>
-                         {!n.is_read && <div className="w-2 h-2 rounded-full bg-alura-accent shrink-0 mt-1"></div>}
-                       </div>
-                     ))
-                   )}
-                 </div>
-              </div>
-            )}
-          </div>
-          
+        {/* Notificações Popover */}
+        <div className="relative">
           <button 
-            onClick={handleLogout} 
-            title="Sair da conta" 
-            className="relative p-2 text-alura-textMuted hover:text-alura-danger hover:bg-alura-danger/10 rounded-xl transition-colors"
+            type="button"
+            onClick={() => {
+              setShowNotifications(!showNotifications)
+              setShowProfileDropdown(false)
+            }} 
+            className={`relative w-[38px] h-[38px] rounded-lg flex items-center justify-center transition-all cursor-pointer ${
+              showNotifications 
+                ? 'bg-alura-surface2 text-alura-textPrimary border border-alura-border' 
+                : 'text-alura-textMuted hover:text-alura-textPrimary hover:bg-alura-surface2'
+            }`}
+            aria-label="Notificações"
+            title="Notificações"
           >
-            <LogOut className="w-5 h-5" />
+            <Bell className="w-[18px] h-[18px]" />
+            {unreadCount > 0 && (
+              <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 rounded-full bg-alura-accent text-black font-extrabold text-[10px] flex items-center justify-center border-2 border-alura-background shadow-sm">
+                {unreadCount > 9 ? '9+' : unreadCount}
+              </span>
+            )}
           </button>
+          
+          {showNotifications && (
+            <div className="absolute top-[calc(100%+10px)] right-0 w-[min(390px,calc(100vw-24px))] bg-alura-surface1 border border-alura-border rounded-[14px] shadow-[0_20px_50px_rgba(0,0,0,0.65)] z-50 overflow-hidden animate-in fade-in slide-in-from-top-2 duration-150">
+              
+              {/* Header */}
+              <div className="h-[52px] px-4 flex items-center justify-between border-b border-alura-border bg-alura-surface1">
+                <b className="text-[15px] text-alura-textPrimary font-semibold">Notificações</b>
+                <button 
+                  type="button"
+                  onClick={markAllAsRead} 
+                  disabled={unreadCount === 0}
+                  className="text-alura-accent hover:underline text-[13px] font-semibold transition-colors disabled:text-alura-textDisabled disabled:no-underline disabled:cursor-default cursor-pointer"
+                >
+                  Marcar todas como lidas
+                </button>
+              </div>
+
+              {/* Lista de Notificações */}
+              <div className="max-h-[380px] overflow-y-auto p-1.5 space-y-1 custom-scrollbar">
+                {notifications.length === 0 ? (
+                  <div className="text-center text-alura-textMuted py-10 px-4">
+                    <b className="block text-alura-textPrimary text-[14px] mb-1">Tudo em dia</b>
+                    <span className="text-xs">Você não tem novas notificações.</span>
+                  </div>
+                ) : (
+                  notifications.map(n => {
+                    const isReq = n.type === 'friend_request'
+                    return (
+                      <div 
+                        key={n.id} 
+                        onClick={() => handleNotificationClick(n)} 
+                        className={`relative flex items-start gap-3 p-2.5 rounded-[10px] cursor-pointer transition-colors ${
+                          !n.is_read ? 'bg-alura-surface2/60 hover:bg-alura-surface2' : 'hover:bg-alura-surface2/40'
+                        }`}
+                      >
+                        {/* Ícone com badge redonda */}
+                        <div className={`w-9 h-9 rounded-full flex items-center justify-center shrink-0 mt-0.5 ${
+                          isReq ? 'bg-[#ff6b6b]/15 text-[#ff6b6b]' : 'bg-alura-accent/15 text-alura-accent'
+                        }`}>
+                          {getNotificationIcon(n.type)}
+                        </div>
+
+                        {/* Corpo */}
+                        <div className="flex-1 min-w-0 pr-3">
+                          <p className="text-[13px] leading-snug text-alura-textPrimary m-0">
+                            <span className="font-semibold">{n.message}</span>
+                          </p>
+                          <time className="text-[11px] text-alura-textMuted mt-1 block">
+                            {formatTime(n.created_at)}
+                          </time>
+
+                          {/* Ações de Solicitação de Amizade */}
+                          {isReq && (
+                            <div className="flex items-center gap-2 mt-2">
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  markAsRead(n.id)
+                                  navigate('/requests')
+                                }}
+                                className="h-[28px] px-3 rounded-md bg-alura-accent text-black text-xs font-bold hover:brightness-95 transition-all cursor-pointer"
+                              >
+                                Ver Solicitação
+                              </button>
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Ponto indicador de não lida */}
+                        {!n.is_read && (
+                          <div className="w-2 h-2 rounded-full bg-alura-accent shrink-0 mt-2 mr-1"></div>
+                        )}
+                      </div>
+                    )
+                  })
+                )}
+              </div>
+
+              {/* Rodapé: Central de Notificações */}
+              <div className="p-1 border-t border-alura-border bg-alura-surface1">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowNotifications(false)
+                    setShowNotificationCenter(true)
+                  }}
+                  className="w-full h-10 rounded-lg text-alura-textMuted hover:text-alura-textPrimary hover:bg-alura-surface2 text-xs font-semibold flex items-center justify-center transition-colors cursor-pointer"
+                >
+                  Abrir central de notificações
+                </button>
+              </div>
+            </div>
+          )}
         </div>
         
-        <div className="flex items-center space-x-4 pl-4 border-l border-alura-border relative" ref={dropdownRef}>
-          <div 
-            className="flex items-center space-x-3 cursor-pointer group"
-            onClick={() => setShowProfileDropdown(!showProfileDropdown)}
+        {/* Logout direto na Topbar (Mantido conforme solicitado) */}
+        <button 
+          type="button"
+          onClick={handleLogout} 
+          title="Sair da conta" 
+          aria-label="Sair da conta"
+          className="w-[38px] h-[38px] rounded-lg flex items-center justify-center text-alura-textMuted hover:text-alura-danger hover:bg-alura-danger/10 transition-colors cursor-pointer"
+        >
+          <LogOut className="w-[18px] h-[18px]" />
+        </button>
+        
+        {/* Símbolo do Perfil na Topbar com Menu Tray (alura-menus-topo.html) */}
+        <div className="relative pl-2 border-l border-alura-border" ref={dropdownRef}>
+          <button 
+            type="button"
+            className="flex items-center gap-1.5 p-1 rounded-full hover:bg-alura-surface2 transition-all cursor-pointer group"
+            onClick={() => {
+              setShowProfileDropdown(!showProfileDropdown)
+              setShowNotifications(false)
+            }}
+            aria-haspopup="true"
+            aria-expanded={showProfileDropdown}
+            aria-label="Menu do perfil"
           >
             <div className="relative">
-              <Avatar className="w-10 h-10 border-2 border-alura-borderStrong group-hover:border-alura-accent transition-colors shadow-[0_0_15px_rgba(0,223,160,0.15)]">
+              <Avatar className="w-9 h-9 border-2 border-alura-border group-hover:border-alura-accent transition-colors shadow-sm">
                 {profile?.avatar_url ? (
                   <img src={profile.avatar_url} className="w-full h-full object-cover rounded-full" />
                 ) : (
-                  <AvatarFallback className="bg-alura-surface2 text-alura-accent text-sm font-semibold">{initials}</AvatarFallback>
+                  <AvatarFallback className="bg-alura-surface2 text-alura-accent text-xs font-bold">{initials}</AvatarFallback>
                 )}
               </Avatar>
-              <div className={`absolute -bottom-1 -right-1 w-3.5 h-3.5 border-2 border-alura-background rounded-full ${
-                profile?.status === 'dnd' ? 'bg-alura-danger' : 
-                profile?.status === 'idle' ? 'bg-[#F5A623]' : 
-                profile?.status === 'offline' ? 'bg-alura-textDisabled' : 
-                'bg-alura-success'
-              }`}></div>
+              <i className={`absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full border-2 border-alura-background ${
+                profile?.status === 'dnd' ? 'bg-[#ff6b6b]' : 
+                profile?.status === 'idle' ? 'bg-[#f5c451]' : 
+                profile?.status === 'offline' ? 'bg-[#6b7570]' : 
+                'bg-[#3ddc84]'
+              }`} />
             </div>
-            <ChevronDown className={`w-4 h-4 text-alura-textMuted transition-transform ${showProfileDropdown ? 'rotate-180' : ''}`} />
-          </div>
+            <ChevronDown className={`w-3.5 h-3.5 text-alura-textMuted transition-transform duration-200 ${showProfileDropdown ? 'rotate-180 text-alura-textPrimary' : ''}`} />
+          </button>
 
+          {/* Bandeja de Perfil (panel menu de alura-menus-topo.html) */}
           {showProfileDropdown && (
-            <div className="absolute top-full right-0 mt-4 w-[320px] bg-alura-surface1 border border-alura-borderStrong rounded-[16px] shadow-[0_10px_40px_rgba(0,0,0,0.8)] overflow-hidden z-50 animate-in fade-in slide-in-from-top-2 duration-200">
+            <div className="absolute top-[calc(100%+10px)] right-0 w-[300px] bg-alura-surface1 border border-alura-border rounded-[14px] shadow-[0_20px_50px_rgba(0,0,0,0.65)] overflow-hidden z-50 animate-in fade-in slide-in-from-top-2 duration-150">
               
-              {/* Header */}
-              <div className="p-4 border-b border-alura-border/40 relative">
-                <div className="flex items-start space-x-3">
-                  <div className="relative">
-                    <Avatar className="w-14 h-14 border-2 border-alura-accent">
-                      {profile?.avatar_url ? (
-                        <img src={profile.avatar_url} className="w-full h-full object-cover rounded-full" />
-                      ) : (
-                        <AvatarFallback className="bg-alura-surface2 text-alura-accent font-semibold">{initials}</AvatarFallback>
-                      )}
-                    </Avatar>
-                    <div className={`absolute bottom-0 right-0 w-4 h-4 border-2 border-alura-surface1 rounded-full ${
-                      profile?.status === 'dnd' ? 'bg-alura-danger' : 
-                      profile?.status === 'idle' ? 'bg-[#F5A623]' : 
-                      profile?.status === 'offline' ? 'bg-alura-textDisabled' : 
-                      'bg-alura-success'
-                    }`}></div>
-                  </div>
-                  <div className="flex flex-col flex-1 min-w-0">
-                    <span className="text-white font-semibold text-[15px] truncate">{displayName}</span>
-                    <span className="text-alura-textMuted text-[13px] truncate">{username}</span>
-                    <div className="flex items-center text-[12px] font-medium text-alura-success mt-1 cursor-pointer">
-                      <div className="w-2 h-2 rounded-full bg-alura-success mr-1.5 animate-pulse"></div>
-                      Online <ChevronRight className="w-3 h-3 ml-0.5" />
-                    </div>
-                  </div>
+              {/* Usuário */}
+              <div className="p-4 flex items-center gap-3">
+                <div className="relative shrink-0">
+                  <Avatar className="w-[52px] h-[52px] border-2 border-alura-border">
+                    {profile?.avatar_url ? (
+                      <img src={profile.avatar_url} className="w-full h-full object-cover rounded-full" />
+                    ) : (
+                      <AvatarFallback className="bg-alura-surface2 text-alura-accent font-bold text-base">{initials}</AvatarFallback>
+                    )}
+                  </Avatar>
+                  <i className={`absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 rounded-full border-2 border-alura-surface1 ${
+                    profile?.status === 'dnd' ? 'bg-[#ff6b6b]' : 
+                    profile?.status === 'idle' ? 'bg-[#f5c451]' : 
+                    profile?.status === 'offline' ? 'bg-[#6b7570]' : 
+                    'bg-[#3ddc84]'
+                  }`} />
                 </div>
-                {profile?.bio && (
-                  <p className="mt-4 text-[12px] text-alura-textSecondary leading-relaxed break-words">
-                    {profile.bio}
-                  </p>
-                )}
-              </div>
-
-              {/* Menu Items */}
-              <div className="p-2 space-y-0.5">
-                <div onClick={() => { navigate('/profile'); setShowProfileDropdown(false) }} className="flex items-center space-x-3 p-3 rounded-[10px] hover:bg-alura-hover hover:border-alura-border border border-transparent cursor-pointer transition-colors bg-alura-selected">
-                  <User className="w-5 h-5 text-alura-accent" />
-                  <div className="flex flex-col flex-1">
-                    <span className="text-[14px] text-white font-medium">Meu perfil</span>
-                    <span className="text-[11px] text-alura-textSecondary">Veja e edite suas informações</span>
-                  </div>
-                  <ChevronRight className="w-4 h-4 text-alura-textMuted" />
-                </div>
-                
-                <div onClick={() => { navigate('/friends'); setShowProfileDropdown(false) }} className="flex items-center space-x-3 p-3 rounded-[10px] hover:bg-alura-hover cursor-pointer transition-colors group">
-                  <Users className="w-5 h-5 text-alura-textMuted group-hover:text-white transition-colors" />
-                  <div className="flex flex-col flex-1">
-                    <span className="text-[14px] text-alura-textPrimary group-hover:text-white transition-colors">Amigos</span>
-                    <span className="text-[11px] text-alura-textSecondary">Gerencie sua lista de amigos</span>
-                  </div>
-                  <ChevronRight className="w-4 h-4 text-alura-textMuted" />
-                </div>
-
-                <div onClick={() => { navigate('/servers'); setShowProfileDropdown(false) }} className="flex items-center space-x-3 p-3 rounded-[10px] hover:bg-alura-hover cursor-pointer transition-colors group">
-                  <Server className="w-5 h-5 text-alura-textMuted group-hover:text-white transition-colors" />
-                  <div className="flex flex-col flex-1">
-                    <span className="text-[14px] text-alura-textPrimary group-hover:text-white transition-colors">Servidores</span>
-                    <span className="text-[11px] text-alura-textSecondary">Seus servidores e comunidades</span>
-                  </div>
-                  <ChevronRight className="w-4 h-4 text-alura-textMuted" />
-                </div>
-
-                <div onClick={() => { navigate('/settings'); setShowProfileDropdown(false) }} className="flex items-center space-x-3 p-3 rounded-[10px] hover:bg-alura-hover cursor-pointer transition-colors group">
-                  <Settings className="w-5 h-5 text-alura-textMuted group-hover:text-white transition-colors" />
-                  <div className="flex flex-col flex-1">
-                    <span className="text-[14px] text-alura-textPrimary group-hover:text-white transition-colors">Configurações</span>
-                    <span className="text-[11px] text-alura-textSecondary">Ajustes da sua conta e do app</span>
-                  </div>
-                  <ChevronRight className="w-4 h-4 text-alura-textMuted" />
+                <div className="min-w-0 line-tight">
+                  <b className="block text-[15px] font-bold text-alura-textPrimary truncate">{displayName}</b>
+                  <small className="text-[12px] text-alura-textMuted truncate block">{username}</small>
                 </div>
               </div>
 
-              <div className="h-px w-full bg-alura-border/50"></div>
-
-              <div className="p-2 space-y-0.5">
-                <div className="flex items-center space-x-3 p-3 rounded-[10px] hover:bg-alura-hover cursor-pointer transition-colors group">
-                  <HelpCircle className="w-5 h-5 text-alura-textMuted group-hover:text-white transition-colors" />
-                  <div className="flex flex-col flex-1">
-                    <span className="text-[14px] text-alura-textPrimary group-hover:text-white transition-colors">Ajuda e suporte</span>
-                    <span className="text-[11px] text-alura-textSecondary">Tire suas dúvidas</span>
-                  </div>
-                  <ChevronRight className="w-4 h-4 text-alura-textMuted" />
+              {profile?.bio && (
+                <div className="px-4 pb-3 text-[13px] text-alura-textMuted line-clamp-2">
+                  {profile.bio}
                 </div>
+              )}
 
-                <div className="flex items-center space-x-3 p-3 rounded-[10px] hover:bg-alura-hover cursor-pointer transition-colors group">
-                  <Activity className="w-5 h-5 text-alura-textMuted group-hover:text-white transition-colors" />
-                  <div className="flex flex-col flex-1">
-                    <span className="text-[14px] text-alura-textPrimary group-hover:text-white transition-colors">Sobre a Alura</span>
-                    <span className="text-[11px] text-alura-textSecondary">Versão 2.0.0</span>
-                  </div>
-                  <ChevronRight className="w-4 h-4 text-alura-textMuted" />
+              {/* Status Picker Selector */}
+              <div className="mx-2 mb-2">
+                <div className="p-1.5 rounded-lg bg-alura-surface2 flex items-center gap-2.5 text-[13px] font-semibold text-alura-textPrimary">
+                  <span className={`w-2.5 h-2.5 rounded-full shrink-0 ${
+                    profile?.status === 'dnd' ? 'bg-[#ff6b6b]' : 
+                    profile?.status === 'idle' ? 'bg-[#f5c451]' : 
+                    profile?.status === 'offline' ? 'bg-[#6b7570]' : 
+                    'bg-[#3ddc84]'
+                  }`} />
+                  <span className="flex-1 truncate">
+                    {profile?.status === 'dnd' ? 'Não perturbe' :
+                     profile?.status === 'idle' ? 'Ausente' :
+                     profile?.status === 'offline' ? 'Invisível' :
+                     'Online'}
+                  </span>
                 </div>
               </div>
 
-              <div className="p-3 bg-alura-surface2 border-t border-alura-border/50">
-                <button 
-                  onClick={handleLogout}
-                  className="w-full flex items-center justify-center space-x-2 py-2.5 rounded-[10px] border border-alura-border text-alura-accent hover:bg-alura-hover hover:border-alura-accent transition-all group"
+              <div className="h-px bg-alura-border my-1.5"></div>
+
+              {/* Navegação da Conta */}
+              <nav className="p-1.5 space-y-0.5" aria-label="Conta">
+                <button
+                  type="button"
+                  onClick={() => { navigate('/profile'); setShowProfileDropdown(false) }}
+                  className="w-full flex items-center gap-3 h-10 px-2.5 rounded-lg text-alura-textPrimary hover:bg-alura-surface2 text-[13px] font-medium transition-colors cursor-pointer"
                 >
-                  <LogOut className="w-4 h-4 group-hover:-translate-x-1 transition-transform" />
-                  <span className="font-medium text-[14px]">Sair da conta</span>
+                  <User className="w-[18px] h-[18px] text-alura-textMuted" />
+                  <span>Meu perfil</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => { navigate('/friends'); setShowProfileDropdown(false) }}
+                  className="w-full flex items-center gap-3 h-10 px-2.5 rounded-lg text-alura-textPrimary hover:bg-alura-surface2 text-[13px] font-medium transition-colors cursor-pointer"
+                >
+                  <Users className="w-[18px] h-[18px] text-alura-textMuted" />
+                  <span>Amigos</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => { navigate('/servers'); setShowProfileDropdown(false) }}
+                  className="w-full flex items-center gap-3 h-10 px-2.5 rounded-lg text-alura-textPrimary hover:bg-alura-surface2 text-[13px] font-medium transition-colors cursor-pointer"
+                >
+                  <Server className="w-[18px] h-[18px] text-alura-textMuted" />
+                  <span>Servidores</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => { navigate('/settings'); setShowProfileDropdown(false) }}
+                  className="w-full flex items-center gap-3 h-10 px-2.5 rounded-lg text-alura-textPrimary hover:bg-alura-surface2 text-[13px] font-medium transition-colors cursor-pointer"
+                >
+                  <Settings className="w-[18px] h-[18px] text-alura-textMuted" />
+                  <span>Configurações</span>
+                </button>
+              </nav>
+
+              <div className="h-px bg-alura-border my-1.5"></div>
+
+              {/* Ajuda e Info */}
+              <nav className="p-1.5 space-y-0.5" aria-label="Ajuda">
+                <button
+                  type="button"
+                  onClick={() => { navigate('/settings'); setShowProfileDropdown(false) }}
+                  className="w-full flex items-center gap-3 h-9 px-2.5 rounded-lg text-alura-textPrimary hover:bg-alura-surface2 text-[13px] font-medium transition-colors cursor-pointer"
+                >
+                  <HelpCircle className="w-[18px] h-[18px] text-alura-textMuted" />
+                  <span>Ajuda e suporte</span>
+                </button>
+
+                <div className="flex items-center justify-between h-9 px-2.5 rounded-lg text-alura-textPrimary text-[13px] font-medium">
+                  <div className="flex items-center gap-3">
+                    <Activity className="w-[18px] h-[18px] text-alura-textMuted" />
+                    <span>Sobre a Alura</span>
+                  </div>
+                  <span className="text-[11px] font-semibold text-alura-textMuted bg-alura-surface2 px-2 py-0.5 rounded-md">v2.0.0</span>
+                </div>
+              </nav>
+
+              <div className="h-px bg-alura-border my-1.5"></div>
+
+              {/* Sair da Conta */}
+              <div className="p-1.5 pb-2">
+                <button 
+                  type="button"
+                  onClick={handleLogout}
+                  className="w-full flex items-center gap-3 h-10 px-2.5 rounded-lg text-[#ff6b6b] hover:bg-[#ff6b6b]/10 text-[13px] font-semibold transition-colors cursor-pointer"
+                >
+                  <LogOut className="w-[18px] h-[18px] text-[#ff6b6b]" />
+                  <span>Sair da conta</span>
                 </button>
               </div>
 
@@ -522,6 +665,12 @@ export function Topbar({ user, profile }: TopbarProps) {
         </div>
       </div>
 
+      <NotificationCenterModal
+        isOpen={showNotificationCenter}
+        onClose={() => setShowNotificationCenter(false)}
+        currentUserId={user?.id}
+        onNotificationsUpdated={fetchNotifications}
+      />
     </header>
   )
 }

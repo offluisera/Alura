@@ -5,7 +5,8 @@ import { motion, AnimatePresence } from "framer-motion"
 import { 
   MessageSquare, UserPlus, MoreHorizontal, ExternalLink, 
   Send, Sparkles, Gamepad2, Heart, Music, Terminal, Code2, 
-  PenTool, MonitorPlay, Activity, Link as LinkIcon, ShieldCheck, X
+  PenTool, MonitorPlay, Activity, Link as LinkIcon, ShieldCheck, X,
+  Crown, UserMinus, Ban, Shield, Calendar
 } from "lucide-react"
 import { Avatar, AvatarFallback } from "@alura/ui"
 import { supabase } from "../../lib/supabase"
@@ -13,6 +14,7 @@ import { GAMES_DB } from "../../pages/onboarding/steps/StepGames"
 import { HOBBIES_DB } from "../../pages/onboarding/steps/StepHobbies"
 import { SpotifyIcon } from "./SpotifyActivityCard"
 import { getActiveConnections, ConnectionIcon } from "./ConnectionIcons"
+import { usePresence, type UserStatusType } from "../../contexts/PresenceContext"
 
 // Mapeamento de tags para exibição estilizada com ícones
 const TAG_MAP: Record<string, { label: string; icon: any }> = {
@@ -50,6 +52,13 @@ export interface UserProfileHoverCardProps {
   children: React.ReactNode
   className?: string
   disabled?: boolean
+  serverRoles?: any[]
+  isServerOwner?: boolean
+  joinedServerAt?: string
+  canKick?: boolean
+  onKick?: (userId: string) => void
+  canBan?: boolean
+  onBan?: (userId: string) => void
 }
 
 export function UserProfileHoverCard({
@@ -58,9 +67,17 @@ export function UserProfileHoverCard({
   side = "auto",
   children,
   className = "",
-  disabled = false
+  disabled = false,
+  serverRoles,
+  isServerOwner,
+  joinedServerAt,
+  canKick,
+  onKick,
+  canBan,
+  onBan,
 }: UserProfileHoverCardProps) {
   const navigate = useNavigate()
+  const { getUserStatus } = usePresence()
   const triggerRef = useRef<HTMLDivElement>(null)
   const popoverRef = useRef<HTMLDivElement>(null)
 
@@ -252,7 +269,15 @@ export function UserProfileHoverCard({
   const avatarUrl = targetUser.avatar_url
   const bannerUrl = targetUser.banner_url
   const bio = targetUser.bio || "Nenhuma biografia informada ainda."
-  const status = targetUser.profileStatus || targetUser.status || "offline"
+  const status: UserStatusType = getUserStatus(
+    {
+      ...targetUser,
+      id: targetId,
+      status: targetUser.status || targetUser.profileStatus,
+      activity_status_visible: targetUser.activity_status_visible,
+    },
+    (targetUser.profileStatus || targetUser.status || "offline") as UserStatusType
+  )
   const tags: string[] = targetUser.tags || []
   const favoriteGames: string[] = targetUser.favorite_games || targetUser.favoriteGames || targetUser.games || []
   const hobbies: string[] = targetUser.hobbies || []
@@ -396,9 +421,26 @@ export function UserProfileHoverCard({
 
           {/* Tag / Cargo ou Badge Alura */}
           <div className="flex items-center gap-1.5 pb-1 pointer-events-auto">
-            <span className="px-2 py-0.5 rounded-full bg-alura-surface2 border border-alura-border text-[10px] font-semibold text-alura-accent flex items-center gap-1 shadow-sm">
-              <ShieldCheck className="w-3 h-3" /> Membro
-            </span>
+            {isServerOwner ? (
+              <span className="px-2.5 py-0.5 rounded-full bg-amber-500/20 border border-amber-500/50 text-[10px] font-extrabold text-amber-300 flex items-center gap-1 shadow-sm">
+                <Crown className="w-3 h-3 text-amber-400" /> Dono
+              </span>
+            ) : serverRoles && serverRoles.length > 0 ? (
+              <span 
+                className="px-2.5 py-0.5 rounded-full text-[10px] font-bold border flex items-center gap-1 shadow-sm"
+                style={{
+                  backgroundColor: `${serverRoles[0]?.color || '#00E6A0'}20`,
+                  borderColor: `${serverRoles[0]?.color || '#00E6A0'}50`,
+                  color: serverRoles[0]?.color || '#00E6A0',
+                }}
+              >
+                <ShieldCheck className="w-3 h-3" /> {serverRoles[0]?.name}
+              </span>
+            ) : (
+              <span className="px-2 py-0.5 rounded-full bg-alura-surface2 border border-alura-border text-[10px] font-semibold text-alura-accent flex items-center gap-1 shadow-sm">
+                <ShieldCheck className="w-3 h-3" /> Membro
+              </span>
+            )}
           </div>
         </div>
       </div>
@@ -449,6 +491,84 @@ export function UserProfileHoverCard({
             {bio}
           </p>
         </div>
+
+        {/* ── Seção Especial: Cargos no Servidor ── */}
+        {(isServerOwner || (serverRoles && serverRoles.length > 0)) && (
+          <div className="p-2.5 rounded-[10px] bg-alura-surface2/80 border border-alura-border mb-3">
+            <div className="flex items-center justify-between mb-1.5">
+              <span className="text-[10px] font-bold text-alura-textMuted uppercase tracking-wider flex items-center gap-1">
+                <Shield className="w-3 h-3 text-alura-accent" />
+                Cargos no Servidor ({(serverRoles?.length || 0) + (isServerOwner ? 1 : 0)})
+              </span>
+            </div>
+            <div className="flex flex-wrap gap-1.5 max-h-24 overflow-y-auto custom-scrollbar">
+              {isServerOwner && (
+                <span className="px-2 py-0.5 rounded-[6px] text-[11px] font-extrabold bg-amber-500/15 text-amber-300 border border-amber-500/40 flex items-center gap-1 shadow-sm">
+                  <Crown className="w-3 h-3 text-amber-400" /> Proprietário
+                </span>
+              )}
+              {serverRoles?.map((r: any) => (
+                <span
+                  key={r.id || r.name}
+                  className="px-2 py-0.5 rounded-[6px] text-[11px] font-bold border flex items-center gap-1 shadow-sm"
+                  style={{
+                    backgroundColor: `${r.color || '#00E6A0'}15`,
+                    borderColor: `${r.color || '#00E6A0'}40`,
+                    color: r.color || '#00E6A0',
+                  }}
+                >
+                  <span
+                    className="w-1.5 h-1.5 rounded-full shrink-0"
+                    style={{ backgroundColor: r.color || '#00E6A0' }}
+                  />
+                  <span>{r.name}</span>
+                </span>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Moderação Rápida no Servidor (Expulsar / Banir) */}
+        {!isServerOwner && (canKick || canBan) && (
+          <div className="pt-1 pb-2 flex items-center gap-2 border-t border-alura-border/40 mb-3">
+            {canKick && onKick && targetId && (
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation()
+                  onKick(targetId)
+                  setIsOpen(false)
+                }}
+                className="flex-1 flex items-center justify-center gap-1.5 py-1.5 px-3 rounded-xl bg-amber-500/15 hover:bg-amber-500/25 border border-amber-500/40 text-amber-300 text-xs font-bold transition-all cursor-pointer shadow-sm"
+              >
+                <UserMinus className="w-3.5 h-3.5" />
+                <span>Expulsar</span>
+              </button>
+            )}
+            {canBan && onBan && targetId && (
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation()
+                  onBan(targetId)
+                  setIsOpen(false)
+                }}
+                className="flex-1 flex items-center justify-center gap-1.5 py-1.5 px-3 rounded-xl bg-red-500/15 hover:bg-red-500/25 border border-red-500/40 text-red-400 text-xs font-bold transition-all cursor-pointer shadow-sm"
+              >
+                <Ban className="w-3.5 h-3.5" />
+                <span>Banir</span>
+              </button>
+            )}
+          </div>
+        )}
+
+        {/* Data de Entrada no Servidor */}
+        {joinedServerAt && (
+          <div className="text-[11px] text-alura-textMuted flex items-center gap-1.5 mb-2.5 px-1">
+            <Calendar className="w-3 h-3 text-alura-accent/70" />
+            <span>Membro desde {new Date(joinedServerAt).toLocaleDateString('pt-BR', { month: 'short', year: 'numeric' })}</span>
+          </div>
+        )}
 
         {/* Spotify Activity (se estiver tocando) */}
         {showSpotify && spotify && (

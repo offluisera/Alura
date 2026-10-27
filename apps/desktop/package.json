@@ -1,6 +1,6 @@
 {
-  "name": "desktop",
-  "version": "1.0.0",
+  "name": "alura",
+  "version": "1.0.3",
   "description": "Alura Desktop Application",
   "author": "Alura",
   "main": "main.js",
@@ -14,8 +14,18 @@
   "build": {
     "appId": "com.alura.app",
     "productName": "Alura",
+    "artifactName": "setup_alura.${ext}",
     "win": {
-      "target": "nsis"
+      "target": "nsis",
+      "artifactName": "setup_alura.${ext}"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "Alura",
+      "artifactName": "setup_alura.${ext}"
     },
     "directories": {
       "output": "dist",
@@ -27,6 +37,7 @@
       "preload-call.js",
       "incoming-call.html",
       "notification.html",
+      "updater.html",
       "icon.png",
       "ui/**/*"
     ]

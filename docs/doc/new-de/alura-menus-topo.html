@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Alura · Menus do topo</title>
+<style>
+  :root {
+    --bg: #0c0e0d; --field: #0f1211; --side: #101312; --card: #161918; --card-2: #1d2120; --line: #232826;
+    --text: #f2f5f3; --muted: #8f9a95; --accent: #2dff7a; --accent-soft: rgba(45,255,122,.12);
+    --on-accent: #04130a; --online: #3ddc84; --away: #f5c451; --dnd: #ff6b6b; --off: #555d59;
+    color-scheme: dark;
+    box-sizing: border-box;
+  }
+  *, *::before, *::after { box-sizing: inherit; }
+  html, body { height: 100%; margin: 0; }
+  body { font-family: "Inter", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; background: var(--bg); color: var(--text); font-size: 14px; }
+  button, input { font: inherit; color: inherit; }
+  button { background: none; border: 0; cursor: pointer; }
+  a { color: inherit; text-decoration: none; }
+  [hidden] { display: none !important; }
+  svg.i { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; flex: none; }
+  :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+  /* ---------- Topo ---------- */
+  .top { height: 64px; display: flex; align-items: center; gap: 8px; padding: 0 24px; border-bottom: 1px solid var(--line); background: var(--bg); position: relative; z-index: 10; }
+  .search { flex: 1; max-width: 520px; position: relative; }
+  .search svg { position: absolute; left: 12px; top: 10px; width: 18px; height: 18px; color: var(--muted); }
+  .search input { width: 100%; height: 38px; border: 0; border-radius: 8px; background: var(--card); padding: 0 44px 0 38px; }
+  .search input::placeholder { color: var(--muted); }
+  .search input:focus { outline: 2px solid var(--accent); background: var(--card-2); }
+  .search kbd { position: absolute; right: 10px; top: 8px; font: 600 11px/20px inherit; color: var(--muted); background: var(--card-2); border-radius: 4px; padding: 0 7px; }
+  .sp { flex: 1; }
+  .pop { position: relative; }
+  .icon-btn { position: relative; width: 38px; height: 38px; border-radius: 8px; display: grid; place-items: center; color: var(--muted); }
+  .icon-btn:hover, .icon-btn[aria-expanded="true"] { background: var(--card); color: var(--text); }
+  .count { position: absolute; top: 3px; right: 2px; min-width: 16px; height: 16px; padding: 0 4px; border-radius: 8px; background: var(--accent); color: var(--on-accent); font-size: 10px; font-weight: 800; display: grid; place-items: center; border: 2px solid var(--bg); box-sizing: content-box; }
+  .me-btn { display: flex; align-items: center; gap: 6px; padding: 3px 8px 3px 3px; border-radius: 22px; color: var(--muted); }
+  .me-btn:hover, .me-btn[aria-expanded="true"] { background: var(--card); color: var(--text); }
+  .me-btn svg { width: 16px; height: 16px; transition: transform .15s; }
+  .me-btn[aria-expanded="true"] svg { transform: rotate(180deg); }
+
+  .av { position: relative; width: 36px; height: 36px; border-radius: 50%; display: grid; place-items: center; flex: none; font-weight: 700; font-size: 13px; background: #243029; color: var(--accent); }
+  .av.lg { width: 52px; height: 52px; font-size: 18px; }
+  .av .st { position: absolute; right: -2px; bottom: -2px; width: 10px; height: 10px; border-radius: 50%; border: 2px solid var(--bg); box-sizing: content-box; background: var(--dnd); }
+  .av.lg .st { width: 12px; height: 12px; border-color: var(--card); right: 0; bottom: 0; }
+
+  /* ---------- Popovers ---------- */
+  .panel { position: absolute; right: 0; top: calc(100% + 10px); background: var(--card); border: 1px solid var(--line); border-radius: 14px; box-shadow: 0 20px 50px rgba(0,0,0,.55); overflow: hidden; transform-origin: top right; animation: in .12s ease-out; }
+  @keyframes in { from { opacity: 0; transform: scale(.97) translateY(-4px); } }
+  .panel.menu { width: 300px; }
+  .panel.notif { width: min(390px, calc(100vw - 24px)); }
+
+  /* Menu do perfil */
+  .who { padding: 16px; display: flex; gap: 12px; align-items: center; }
+  .who .t { min-width: 0; line-height: 1.3; }
+  .who b { display: block; font-size: 16px; }
+  .who small { color: var(--muted); }
+  .bio { padding: 0 16px 12px; color: var(--muted); font-size: 13px; }
+  .status { margin: 0 8px 8px; }
+  .status > button { width: 100%; height: 36px; padding: 0 8px; border-radius: 8px; display: flex; align-items: center; gap: 10px; background: var(--card-2); font-weight: 600; font-size: 13px; }
+  .status > button:hover { background: #252a28; }
+  .status > button .chev { margin-left: auto; width: 16px; height: 16px; color: var(--muted); transition: transform .15s; }
+  .status > button[aria-expanded="true"] .chev { transform: rotate(90deg); }
+  .dot { width: 10px; height: 10px; border-radius: 50%; flex: none; }
+  .opts { margin-top: 4px; display: grid; gap: 2px; }
+  .opt { height: 34px; padding: 0 8px; border-radius: 8px; display: flex; align-items: center; gap: 10px; color: var(--muted); font-weight: 500; text-align: left; }
+  .opt:hover { background: var(--card-2); color: var(--text); }
+  .opt[aria-checked="true"] { color: var(--text); }
+  .opt .ck { margin-left: auto; width: 16px; height: 16px; color: var(--accent); stroke-width: 2.4; visibility: hidden; }
+  .opt[aria-checked="true"] .ck { visibility: visible; }
+  .sep { height: 1px; background: var(--line); margin: 6px 0; }
+  .items { padding: 0 8px; display: grid; gap: 2px; }
+  .it { display: flex; align-items: center; gap: 12px; height: 40px; padding: 0 10px; border-radius: 8px; color: var(--text); font-weight: 500; width: 100%; text-align: left; }
+  .it:hover, .it:focus-visible { background: var(--card-2); }
+  .it svg { color: var(--muted); }
+  .it:hover svg { color: var(--text); }
+  .it .meta { margin-left: auto; color: var(--muted); font-size: 12px; font-weight: 400; }
+  .it.danger { color: var(--dnd); } .it.danger svg { color: var(--dnd); }
+  .it.danger:hover { background: rgba(255,107,107,.1); }
+  .menu .items:last-child { padding-bottom: 8px; }
+
+  /* Notificações */
+  .nh { height: 52px; padding: 0 16px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--line); }
+  .nh b { font-size: 15px; }
+  .link { color: var(--accent); font-size: 13px; font-weight: 600; }
+  .link:hover { text-decoration: underline; }
+  .link:disabled { color: var(--muted); cursor: default; text-decoration: none; }
+  .nl { max-height: 380px; overflow-y: auto; padding: 6px; }
+  .n { position: relative; display: flex; gap: 12px; padding: 10px; border-radius: 10px; cursor: pointer; }
+  .n:hover { background: var(--card-2); }
+  .n .ic { width: 36px; height: 36px; border-radius: 50%; display: grid; place-items: center; flex: none; background: var(--accent-soft); color: var(--accent); }
+  .n .ic.req { background: rgba(255,107,107,.12); color: var(--dnd); }
+  .n .ic svg { width: 18px; height: 18px; }
+  .n .b { flex: 1; min-width: 0; line-height: 1.4; }
+  .n .b p { margin: 0; } .n .b p strong { font-weight: 600; }
+  .n .b time { color: var(--muted); font-size: 12px; }
+  .n.unread::after { content: ""; position: absolute; right: 12px; top: 18px; width: 8px; height: 8px; border-radius: 50%; background: var(--accent); }
+  .n.unread .b { padding-right: 16px; }
+  .acts { display: flex; gap: 8px; margin-top: 8px; }
+  .btn { height: 30px; padding: 0 12px; border-radius: 6px; background: var(--accent); color: var(--on-accent); font-weight: 700; font-size: 13px; }
+  .btn:hover { filter: brightness(.92); }
+  .btn.sec { background: var(--card-2); color: var(--text); font-weight: 600; }
+  .btn.sec:hover { background: #2a302e; filter: none; }
+  .done { margin-top: 6px; color: var(--muted); font-size: 13px; }
+  .nempty { text-align: center; color: var(--muted); padding: 40px 16px; }
+  .nempty b { display: block; color: var(--text); margin-bottom: 4px; }
+  .nf { border-top: 1px solid var(--line); padding: 4px; }
+  .nf a { display: flex; align-items: center; justify-content: center; height: 40px; border-radius: 8px; color: var(--muted); font-weight: 600; }
+  .nf a:hover { background: var(--card-2); color: var(--text); }
+
+  /* Fundo de contexto (só para o exemplo) */
+  .ctx { max-width: 680px; margin: 0 auto; padding: 32px 24px; display: grid; gap: 16px; }
+  .ctx h1 { margin: 0; font-size: 28px; letter-spacing: -.02em; } .ctx p { margin: 0; color: var(--muted); }
+  .sk { background: var(--card); border-radius: 12px; height: 110px; }
+
+  @media (prefers-reduced-motion: reduce) { .panel { animation: none; } * { transition: none !important; } }
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <symbol id="search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/></symbol>
+    <symbol id="bell" viewBox="0 0 24 24"><path d="M6 17V11a6 6 0 0112 0v6l2 2H4zM10 21h4"/></symbol>
+    <symbol id="chevd" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></symbol>
+    <symbol id="chevr" viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></symbol>
+    <symbol id="check" viewBox="0 0 24 24"><path d="M5 12.500l4.500 4.500L19 7.500"/></symbol>
+    <symbol id="user" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21c.6-4 3.700-6 8-6s7.400 2 8 6"/></symbol>
+    <symbol id="users" viewBox="0 0 24 24"><circle cx="9" cy="8" r="3.500"/><path d="M2.500 20c.5-3.500 3.200-5.500 6.500-5.500s6 2 6.500 5.500M16 4.500a3.500 3.500 0 010 7M18 14.800c2 .6 3.300 2.300 3.600 5"/></symbol>
+    <symbol id="uplus" viewBox="0 0 24 24"><circle cx="9" cy="8" r="3.500"/><path d="M2.500 20c.5-3.500 3.200-5.500 6.500-5.500s6 2 6.500 5.500M19 8v6M16 11h6"/></symbol>
+    <symbol id="server" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="7" rx="2"/><rect x="3" y="13" width="18" height="7" rx="2"/><path d="M7 7.500h.01M7 16.500h.01"/></symbol>
+    <symbol id="gear" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M5 5l2 2M17 17l2 2M19 5l-2 2M7 17l-2 2"/></symbol>
+    <symbol id="help" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M9.500 9.500a2.500 2.500 0 114 2c-.9.600-1.500 1.100-1.500 2.200M12 17h.01"/></symbol>
+    <symbol id="pulse" viewBox="0 0 24 24"><path d="M3 12h4l3-7 4 14 3-7h4"/></symbol>
+    <symbol id="out" viewBox="0 0 24 24"><path d="M10 4H6a2 2 0 00-2 2v12a2 2 0 002 2h4M15 8l4 4-4 4M19 12H9"/></symbol>
+    <symbol id="doc" viewBox="0 0 24 24"><path d="M7 3h7l5 5v13H7zM14 3v5h5M10 13h6M10 17h6"/></symbol>
+  </defs>
+</svg>
+
+<header class="top">
+  <label class="search"><svg class="i"><use href="#search"/></svg><input type="search" placeholder="Buscar amigos, usuários, servidores"><kbd>/</kbd></label>
+  <span class="sp"></span>
+
+  <!-- Notificações -->
+  <div class="pop" id="pop-n">
+    <button class="icon-btn" id="btn-n" aria-haspopup="true" aria-expanded="false" aria-controls="panel-n" aria-label="Notificações">
+      <svg class="i"><use href="#bell"/></svg><span class="count" id="count" hidden>0</span>
+    </button>
+    <div class="panel notif" id="panel-n" hidden>
+      <div class="nh"><b>Notificações</b><button class="link" id="read-all">Marcar todas como lidas</button></div>
+      <div class="nl" id="nl"></div>
+      <div class="nf"><a href="#">Abrir central de notificações</a></div>
+    </div>
+  </div>
+
+  <!-- Perfil -->
+  <div class="pop" id="pop-m">
+    <button class="me-btn" id="btn-m" aria-haspopup="true" aria-expanded="false" aria-controls="panel-m" aria-label="Menu do perfil">
+      <span class="av">C<i class="st" id="st-top"></i></span><svg class="i"><use href="#chevd"/></svg>
+    </button>
+    <div class="panel menu" id="panel-m" hidden>
+      <div class="who">
+        <span class="av lg">C<i class="st" id="st-big"></i></span>
+        <div class="t"><b>ContA</b><small>@contatestel</small></div>
+      </div>
+      <div class="bio">Apenas isso mesmo</div>
+      <div class="status">
+        <button id="st-btn" aria-expanded="false"><span class="dot" id="st-dot"></span><span id="st-label">Não perturbe</span><svg class="i chev"><use href="#chevr"/></svg></button>
+        <div class="opts" id="opts" role="radiogroup" aria-label="Status" hidden></div>
+      </div>
+      <div class="sep"></div>
+      <nav class="items" aria-label="Conta">
+        <a class="it" href="#"><svg class="i"><use href="#user"/></svg>Meu perfil</a>
+        <a class="it" href="#"><svg class="i"><use href="#users"/></svg>Amigos</a>
+        <a class="it" href="#"><svg class="i"><use href="#server"/></svg>Servidores</a>
+        <a class="it" href="#"><svg class="i"><use href="#gear"/></svg>Configurações</a>
+      </nav>
+      <div class="sep"></div>
+      <nav class="items" aria-label="Ajuda">
+        <a class="it" href="#"><svg class="i"><use href="#help"/></svg>Ajuda e suporte</a>
+        <a class="it" href="#"><svg class="i"><use href="#pulse"/></svg>Sobre a Alura<span class="meta">v2.0.0</span></a>
+      </nav>
+      <div class="sep"></div>
+      <div class="items"><button class="it danger" id="logout"><svg class="i"><use href="#out"/></svg>Sair da conta</button></div>
+    </div>
+  </div>
+</header>
+
+<main class="ctx">
+  <h1>Início</h1>
+  <p>Clique no sino ou no avatar para abrir os menus.</p>
+  <div class="sk"></div><div class="sk"></div>
+</main>
+
+<script>
+  const $ = id => document.getElementById(id);
+  const ic = id => '<svg class="i"><use href="#' + id + '"/></svg>';
+
+  // ---------- Popovers (abre um por vez; fecha com clique fora e Esc) ----------
+  const pops = [
+    { btn: $('btn-n'), panel: $('panel-n'), root: $('pop-n') },
+    { btn: $('btn-m'), panel: $('panel-m'), root: $('pop-m') }
+  ];
+  function closeAll(except) {
+    pops.forEach(p => { if (p !== except) { p.panel.hidden = true; p.btn.setAttribute('aria-expanded', 'false'); } });
+  }
+  pops.forEach(p => p.btn.addEventListener('click', () => {
+    const open = p.panel.hidden; closeAll(open ? p : null);
+    p.panel.hidden = !open; p.btn.setAttribute('aria-expanded', open);
+  }));
+  document.addEventListener('click', e => { if (!pops.some(p => p.root.contains(e.target))) closeAll(); });
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Escape') { const o = pops.find(p => !p.panel.hidden); closeAll(); if (o) o.btn.focus(); }
+  });
+
+  // ---------- Status ----------
+  const statuses = [
+    { id: 'online', label: 'Online',        color: 'var(--online)' },
+    { id: 'away',   label: 'Ausente',       color: 'var(--away)' },
+    { id: 'dnd',    label: 'Não perturbe',  color: 'var(--dnd)' },
+    { id: 'off',    label: 'Invisível',     color: 'var(--off)' }
+  ];
+  let status = 'dnd';
+  function renderStatus() {
+    const s = statuses.find(x => x.id === status);
+    $('st-label').textContent = s.label; $('st-dot').style.background = s.color;
+    $('st-top').style.background = s.color; $('st-big').style.background = s.color;
+    $('opts').innerHTML = '';
+    statuses.forEach(o => {
+      const b = document.createElement('button'); b.className = 'opt'; b.setAttribute('role', 'radio'); b.setAttribute('aria-checked', o.id === status);
+      b.innerHTML = '<span class="dot" style="background:' + o.color + '"></span><span>' + o.label + '</span>' + ic('check').replace('class="i"', 'class="i ck"');
+      b.onclick = () => { status = o.id; renderStatus(); /* TODO: salvar status no backend */ };
+      $('opts').appendChild(b);
+    });
+  }
+  $('st-btn').addEventListener('click', e => {
+    const open = $('opts').hidden; $('opts').hidden = !open; e.currentTarget.setAttribute('aria-expanded', open);
+  });
+  $('logout').addEventListener('click', () => { /* TODO: encerrar sessão */ });
+  renderStatus();
+
+  // ---------- Notificações ----------
+  // Troque pelos dados reais. type: 'req' (solicitação) | 'post' (publicação)
+  const notes = [
+    { id: 1, type: 'req',  who: 'kroftus',        text: 'enviou uma solicitação de amizade.', when: 'há 31 dias', unread: true,  state: null },
+    { id: 2, type: 'post', who: 'Luis Fernando',  text: 'fez uma nova publicação.',            when: 'há 38 dias', unread: true  },
+    { id: 3, type: 'post', who: 'Luis Fernando',  text: 'fez uma nova publicação.',            when: 'há 38 dias', unread: false },
+    { id: 4, type: 'post', who: 'Luis Fernando',  text: 'fez uma nova publicação.',            when: 'há 38 dias', unread: false },
+    { id: 5, type: 'req',  who: 'Luis Fernando',  text: 'enviou uma solicitação de amizade.', when: 'há 38 dias', unread: false, state: 'accepted' }
+  ];
+
+  function renderNotes() {
+    const list = $('nl'); list.innerHTML = '';
+    if (!notes.length) { list.innerHTML = '<div class="nempty"><b>Tudo em dia</b>Você não tem notificações.</div>'; }
+    notes.forEach(n => {
+      const el = document.createElement('div'); el.className = 'n' + (n.unread ? ' unread' : '');
+      el.innerHTML = '<span class="ic ' + (n.type === 'req' ? 'req' : '') + '">' + ic(n.type === 'req' ? 'uplus' : 'doc') + '</span>' +
+        '<div class="b"><p><strong></strong> <span></span></p><time></time><div class="slot"></div></div>';
+      el.querySelector('strong').textContent = n.who; el.querySelector('p span').textContent = n.text; el.querySelector('time').textContent = n.when;
+      const slot = el.querySelector('.slot');
+      if (n.type === 'req') {
+        if (n.state === 'accepted' || n.state === 'declined') {
+          slot.className = 'done'; slot.textContent = n.state === 'accepted' ? 'Solicitação aceita' : 'Solicitação recusada';
+        } else if (n.state !== undefined) {
+          slot.className = 'acts';
+          [['Aceitar', '', 'accepted'], ['Recusar', 'sec', 'declined']].forEach(([l, c, st]) => {
+            const b = document.createElement('button'); b.className = 'btn ' + c; b.textContent = l;
+            b.onclick = e => { e.stopPropagation(); n.state = st; n.unread = false; renderNotes(); /* TODO: responder no backend */ };
+            slot.appendChild(b);
+          });
+        }
+      }
+      el.onclick = () => { if (n.unread) { n.unread = false; renderNotes(); } /* TODO: abrir o destino */ };
+      list.appendChild(el);
+    });
+    const unread = notes.filter(n => n.unread).length;
+    $('count').hidden = !unread; $('count').textContent = unread;
+    $('read-all').disabled = !unread;
+  }
+  $('read-all').addEventListener('click', () => { notes.forEach(n => n.unread = false); renderNotes(); });
+  renderNotes();
+</script>
+</body>
+</html>

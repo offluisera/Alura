@@ -3,6 +3,23 @@ import { supabase } from '../lib/supabase'
 import { useWebRTCCall } from '../lib/hooks/useWebRTCCall'
 import type { UseWebRTCCallReturn, CallParticipant, CallType } from '../lib/hooks/useWebRTCCall'
 import type { PhoenixCallSignal as CallSignal } from '../lib/services/PhoenixCallSignalingService'
+import { useServerVoiceRoom } from '../lib/hooks/useServerVoiceRoom'
+import type { UseServerVoiceRoomReturn } from '../lib/hooks/useServerVoiceRoom'
+
+export interface ServerVoiceConnection {
+  serverId: string
+  serverName: string
+  roomId: string
+  roomName: string
+  ping?: number
+  isMuted?: boolean
+  isDeafened?: boolean
+  isSpeaking?: boolean
+  disconnect: () => void
+  toggleMute?: () => void
+  toggleDeafen?: () => void
+  openVoiceRoom: () => void
+}
 
 interface CallContextType extends UseWebRTCCallReturn {
   activeDmUserId: string | null
@@ -10,6 +27,11 @@ interface CallContextType extends UseWebRTCCallReturn {
   pendingSignal: CallSignal | null
   callerProfile: CallParticipant | null
   isDnd: boolean
+  serverVoiceConnection: ServerVoiceConnection | null
+  setServerVoiceConnection: React.Dispatch<React.SetStateAction<ServerVoiceConnection | null>>
+  serverVoice: UseServerVoiceRoomReturn
+  isCallOverlayMinimized: boolean
+  setIsCallOverlayMinimized: React.Dispatch<React.SetStateAction<boolean>>
   startCallWithProfile: (
     toUserId: string,
     participant: CallParticipant,
@@ -53,8 +75,49 @@ export function CallProvider({ children, user, profile }: CallProviderProps) {
   const [currentDmChannelId, setCurrentDmChannelId] = useState<string | null>(null)
   const [pendingSignal, setPendingSignal] = useState<CallSignal | null>(null)
   const [callerProfile, setCallerProfile] = useState<CallParticipant | null>(null)
+  const [serverVoiceConnection, setServerVoiceConnection] = useState<ServerVoiceConnection | null>(null)
+  const [isCallOverlayMinimized, setIsCallOverlayMinimized] = useState(false)
 
-  const isDnd = profile?.status === 'dnd'
+  const serverVoice = useServerVoiceRoom(user, profile)
+
+  // Sincroniza a conexão de voz do servidor com a interface global (Sidebar VoiceConnectionCard)
+  useEffect(() => {
+    if (serverVoice.connectedRoomId && serverVoice.connectedServerId) {
+      setServerVoiceConnection({
+        serverId: serverVoice.connectedServerId,
+        serverName: serverVoice.connectedServerName || 'Servidor',
+        roomId: serverVoice.connectedRoomId,
+        roomName: serverVoice.connectedRoomName || 'Voz',
+        ping: 18,
+        isMuted: serverVoice.isLocalAudioMuted,
+        isDeafened: serverVoice.isDeafened,
+        isSpeaking: serverVoice.isLocalSpeaking,
+        disconnect: () => serverVoice.leaveVoiceRoom(),
+        toggleMute: () => serverVoice.toggleAudioMute(),
+        toggleDeafen: () => serverVoice.toggleDeafen(),
+        openVoiceRoom: () => {
+          window.location.hash = `#/servers/${serverVoice.connectedServerId}/${serverVoice.connectedRoomId}`
+        },
+      })
+    } else {
+      setServerVoiceConnection(null)
+    }
+  }, [
+    serverVoice.connectedRoomId,
+    serverVoice.connectedServerId,
+    serverVoice.connectedServerName,
+    serverVoice.connectedRoomName,
+    serverVoice.isLocalAudioMuted,
+    serverVoice.isDeafened,
+    serverVoice.isLocalSpeaking,
+  ])
+
+  const profileRef = useRef(profile)
+  useEffect(() => {
+    profileRef.current = profile
+  }, [profile])
+
+  const isDnd = (profile?.status || profileRef.current?.status) === 'dnd'
   const callDurationRef = useRef(0)
   const activeCallPartnerRef = useRef<{ userId: string; name: string; channelId?: string | null } | null>(null)
   const wasConnectedRef = useRef(false)
@@ -103,9 +166,13 @@ export function CallProvider({ children, user, profile }: CallProviderProps) {
     }
   }, [user?.id])
 
+  const pendingSignalRef = useRef<CallSignal | null>(null)
+  const callerProfileRef = useRef<CallParticipant | null>(null)
+
   // ── Callback quando chega chamada recebida ──────────────────────────────────
   const handleIncomingCall = useCallback((signal: CallSignal, fromUserId: string) => {
     setPendingSignal(signal)
+    pendingSignalRef.current = signal
     const callerName = (signal.payload?.callerName as string) || 'Usuário'
     const callerAvatar = (signal.payload?.callerAvatar as string) || undefined
 
@@ -115,27 +182,35 @@ export function CallProvider({ children, user, profile }: CallProviderProps) {
       avatar: callerAvatar,
     }
     setCallerProfile(participant)
+    callerProfileRef.current = participant
     activeCallPartnerRef.current = { userId: fromUserId, name: callerName }
 
-    // Notifica janela nativa do Electron (se em ambiente desktop)
-    const ipc = getElectronIPC()
-    const activeTheme = typeof window !== 'undefined' ? (localStorage.getItem('alura_theme') || 'forest') : 'forest'
-    ipc?.send('show-incoming-call', {
-      callerId: fromUserId,
-      callerName,
-      callerAvatar: callerAvatar || null,
-      callType: signal.payload?.callType || 'audio',
-      theme: activeTheme,
-    })
-  }, [])
+    // Notifica janela nativa do Electron apenas se não estiver em DND (Não Perturbe/Ocupado)
+    const currentStatus = profileRef.current?.status || profile?.status
+    const isBusy = currentStatus === 'dnd'
+    if (!isBusy) {
+      const ipc = getElectronIPC()
+      const activeTheme = typeof window !== 'undefined' ? (localStorage.getItem('alura_theme') || 'forest') : 'forest'
+      ipc?.send('show-incoming-call', {
+        callerId: fromUserId,
+        callerName,
+        callerAvatar: callerAvatar || null,
+        callType: signal.payload?.callType || 'audio',
+        theme: activeTheme,
+      })
+    }
+  }, [profile?.status])
 
   const webrtc = useWebRTCCall(user?.id || '', handleIncomingCall)
 
-  // Atualiza referência de duração
+  // Atualiza referência de duração e reseta minimização ao iniciar/receber chamada
   useEffect(() => {
     callDurationRef.current = webrtc.callDuration
     if (webrtc.callState === 'active') {
       wasConnectedRef.current = true
+    }
+    if (webrtc.callState === 'ringing' || webrtc.callState === 'calling') {
+      setIsCallOverlayMinimized(false)
     }
   }, [webrtc.callDuration, webrtc.callState])
 
@@ -150,6 +225,14 @@ export function CallProvider({ children, user, profile }: CallProviderProps) {
     // 1. Chamada foi atendida e conectou
     if (prevState !== 'active' && currentState === 'active') {
       wasConnectedRef.current = true
+      const ipc = getElectronIPC()
+      ipc?.send('close-call-window')
+    }
+
+    // Fecha janela de chamada nativa quando sair do ringing ou encerrar
+    if (currentState === 'ended' || currentState === 'idle') {
+      const ipc = getElectronIPC()
+      ipc?.send('close-call-window')
     }
 
     // 2. Chamada foi encerrada
@@ -174,7 +257,9 @@ export function CallProvider({ children, user, profile }: CallProviderProps) {
       // Reset
       wasConnectedRef.current = false
       setPendingSignal(null)
+      pendingSignalRef.current = null
       setCallerProfile(null)
+      callerProfileRef.current = null
     }
   }, [webrtc.callState, getOrCreateDmChannel, sendChatSystemMessage])
 
@@ -187,15 +272,25 @@ export function CallProvider({ children, user, profile }: CallProviderProps) {
       const data = (arg2 !== undefined && arg2 !== null) ? arg2 : arg1
       if (!data) return
 
-      if (data.action === 'accept' && pendingSignal && callerProfile) {
-        webrtc.acceptCall(pendingSignal, callerProfile)
+      ipc.send('close-call-window')
+
+      const sig = pendingSignalRef.current || pendingSignal
+      const prof = callerProfileRef.current || callerProfile
+
+      if (data.action === 'accept' && sig && prof) {
+        webrtc.acceptCall(sig, prof)
         setPendingSignal(null)
-      } else if (data.action === 'reject' && pendingSignal) {
-        webrtc.rejectCall(pendingSignal)
+        pendingSignalRef.current = null
+      } else if ((data.action === 'reject' || data.action === 'timeout') && sig) {
+        webrtc.rejectCall(sig)
+        const partner = activeCallPartnerRef.current || { userId: sig.from_user_id, name: (sig.payload?.callerName as string) || 'Usuário' }
+        if (partner) {
+          getOrCreateDmChannel(partner.userId).then((chId) => {
+            if (chId) sendChatSystemMessage(chId, `[call:rejected] Chamada recusada`)
+          })
+        }
         setPendingSignal(null)
-      } else if (data.action === 'timeout' && pendingSignal) {
-        webrtc.rejectCall(pendingSignal)
-        setPendingSignal(null)
+        pendingSignalRef.current = null
       }
     }
 
@@ -238,21 +333,48 @@ export function CallProvider({ children, user, profile }: CallProviderProps) {
 
   // ── Atender chamada pendente ───────────────────────────────────────────────
   const acceptIncomingCall = useCallback(async () => {
-    if (pendingSignal && callerProfile) {
-      await webrtc.acceptCall(pendingSignal, callerProfile)
+    const ipc = getElectronIPC()
+    ipc?.send('close-call-window')
+
+    const sig = pendingSignalRef.current || pendingSignal
+    const prof = callerProfileRef.current || callerProfile
+    if (sig) {
+      const effectiveProfile: CallParticipant = prof || {
+        userId: sig.from_user_id,
+        name: (sig.payload?.callerName as string) || 'Usuário',
+        avatar: (sig.payload?.callerAvatar as string) || undefined,
+      }
+      await webrtc.acceptCall(sig, effectiveProfile)
       setPendingSignal(null)
+      pendingSignalRef.current = null
     }
   }, [pendingSignal, callerProfile, webrtc])
 
   // ── Rejeitar chamada pendente ──────────────────────────────────────────────
   const rejectIncomingCall = useCallback(async () => {
-    if (pendingSignal) {
-      await webrtc.rejectCall(pendingSignal)
-      setPendingSignal(null)
+    const ipc = getElectronIPC()
+    ipc?.send('close-call-window')
+
+    const sig = pendingSignalRef.current || pendingSignal
+    const partner = activeCallPartnerRef.current || (sig ? { userId: sig.from_user_id, name: (sig.payload?.callerName as string) || 'Usuário' } : null)
+
+    if (sig) {
+      await webrtc.rejectCall(sig)
     } else {
       webrtc.hangUp()
     }
-  }, [pendingSignal, webrtc])
+
+    if (partner) {
+      getOrCreateDmChannel(partner.userId).then((chId) => {
+        if (chId) sendChatSystemMessage(chId, `[call:rejected] Chamada recusada`)
+      })
+    }
+
+    setPendingSignal(null)
+    pendingSignalRef.current = null
+    setCallerProfile(null)
+    callerProfileRef.current = null
+  }, [pendingSignal, webrtc, getOrCreateDmChannel, sendChatSystemMessage])
 
   return (
     <CallContext.Provider
@@ -263,6 +385,11 @@ export function CallProvider({ children, user, profile }: CallProviderProps) {
         pendingSignal,
         callerProfile,
         isDnd,
+        serverVoiceConnection,
+        setServerVoiceConnection,
+        serverVoice,
+        isCallOverlayMinimized,
+        setIsCallOverlayMinimized,
         startCallWithProfile,
         acceptIncomingCall,
         rejectIncomingCall,

@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Alura · Solicitações</title>
+<style>
+  :root {
+    --bg: #0c0e0d; --side: #101312; --card: #161918; --card-2: #1d2120; --line: #232826;
+    --text: #f2f5f3; --muted: #8f9a95; --accent: #2dff7a; --accent-soft: rgba(45,255,122,.12);
+    --on-accent: #04130a; --online: #3ddc84; --dnd: #ff6b6b;
+    box-sizing: border-box;
+  }
+  *, *::before, *::after { box-sizing: inherit; }
+  html, body { height: 100%; margin: 0; }
+  body { font-family: "Inter", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; background: var(--bg); color: var(--text); font-size: 14px; }
+  button, input { font: inherit; color: inherit; }
+  button { background: none; border: 0; cursor: pointer; }
+  a { color: inherit; text-decoration: none; }
+  [hidden] { display: none !important; }
+  svg.i { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; flex: none; }
+  :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+  .app { display: grid; grid-template-columns: 240px minmax(0,1fr) 300px; height: 100vh; }
+
+  /* Lateral */
+  .side { background: var(--side); border-right: 1px solid var(--line); display: flex; flex-direction: column; min-height: 0; }
+  .logo { height: 64px; display: flex; align-items: center; padding: 0 20px; }
+  .logo svg { width: 34px; height: 34px; }
+  .nav { padding: 4px 12px; display: grid; gap: 2px; }
+  .nav a { position: relative; display: flex; align-items: center; gap: 12px; height: 40px; padding: 0 12px; border-radius: 8px; color: var(--muted); font-weight: 500; transition: background .15s, color .15s; }
+  .nav a:hover { background: var(--card-2); color: var(--text); }
+  .nav a[aria-current="page"] { background: var(--accent-soft); color: var(--text); }
+  .nav a[aria-current="page"] svg { color: var(--accent); }
+  .nav a[aria-current="page"]::before { content: ""; position: absolute; left: -12px; top: 9px; bottom: 9px; width: 3px; border-radius: 0 3px 3px 0; background: var(--accent); }
+  .nav .gap { height: 12px; }
+  .nav .badge { margin-left: auto; min-width: 18px; height: 18px; padding: 0 5px; border-radius: 9px; background: var(--accent); color: var(--on-accent); font-size: 11px; font-weight: 700; display: grid; place-items: center; }
+  .side h3 { margin: 20px 24px 8px; font-size: 12px; font-weight: 600; color: var(--muted); display: flex; justify-content: space-between; align-items: center; }
+  .side h3 button { color: var(--muted); display: grid; }
+  .srv { display: flex; align-items: center; gap: 10px; margin: 0 12px; padding: 6px 12px; border-radius: 8px; }
+  .srv:hover { background: var(--card-2); }
+  .srv b { font-weight: 600; display: block; } .srv small { color: var(--muted); font-size: 12px; }
+  .me { margin-top: auto; padding: 10px 12px; border-top: 1px solid var(--line); display: flex; align-items: center; gap: 10px; }
+  .me .who { flex: 1; min-width: 0; line-height: 1.25; } .me .who b { display: block; } .me .who small { color: var(--muted); font-size: 12px; }
+  .me button { width: 32px; height: 32px; border-radius: 6px; display: grid; place-items: center; color: var(--muted); }
+  .me button:hover, .icon-btn:hover { background: var(--card-2); color: var(--text); }
+  .me svg.i { width: 18px; height: 18px; }
+
+  .av { position: relative; width: 36px; height: 36px; border-radius: 50%; display: grid; place-items: center; flex: none; font-weight: 700; font-size: 13px; background: #243029; color: var(--accent); }
+  .av.sq { border-radius: 12px; } .av.lg { width: 44px; height: 44px; font-size: 15px; }
+  .av .st { position: absolute; right: -2px; bottom: -2px; width: 10px; height: 10px; border-radius: 50%; border: 2px solid var(--side); background: var(--online); box-sizing: content-box; }
+  .av .st.dnd { background: var(--dnd); }
+
+  /* Topo */
+  .main { display: flex; flex-direction: column; min-width: 0; min-height: 0; }
+  .top { height: 64px; flex: none; display: flex; align-items: center; gap: 12px; padding: 0 24px; border-bottom: 1px solid var(--line); }
+  .search { flex: 1; max-width: 520px; position: relative; }
+  .search svg { position: absolute; left: 12px; top: 10px; width: 18px; height: 18px; color: var(--muted); }
+  .search input { width: 100%; height: 38px; border: 0; border-radius: 8px; background: var(--card); padding: 0 44px 0 38px; }
+  .search input::placeholder { color: var(--muted); }
+  .search input:focus { outline: 2px solid var(--accent); background: var(--card-2); }
+  .search kbd { position: absolute; right: 10px; top: 8px; font: 600 11px/20px inherit; color: var(--muted); background: var(--card-2); border-radius: 4px; padding: 0 7px; }
+  .sp { flex: 1; }
+  .icon-btn { width: 36px; height: 36px; border-radius: 8px; display: grid; place-items: center; color: var(--muted); }
+
+  /* Solicitações */
+  .page { flex: 1; overflow-y: auto; padding: 32px 24px 48px; }
+  .col { max-width: 760px; margin: 0 auto; }
+  .head { margin-bottom: 24px; }
+  .head h1 { margin: 0 0 4px; font-size: 28px; letter-spacing: -.02em; }
+  .head p { margin: 0; color: var(--muted); }
+
+  .tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--line); margin-bottom: 8px; }
+  .tab { position: relative; height: 40px; padding: 0 12px; color: var(--muted); font-weight: 600; display: flex; align-items: center; gap: 8px; }
+  .tab:hover { color: var(--text); }
+  .tab small { font-size: 12px; font-weight: 600; background: var(--card-2); color: var(--muted); border-radius: 10px; padding: 0 7px; line-height: 18px; }
+  .tab[aria-selected="true"] { color: var(--text); }
+  .tab[aria-selected="true"]::after { content: ""; position: absolute; left: 8px; right: 8px; bottom: -1px; height: 2px; background: var(--accent); border-radius: 2px; }
+  .tab[aria-selected="true"] small { background: var(--accent-soft); color: var(--accent); }
+
+  .req { display: flex; align-items: center; gap: 14px; padding: 10px 12px; border-radius: 10px; }
+  .req:hover { background: var(--card); }
+  .req .t { flex: 1; min-width: 0; line-height: 1.4; }
+  .req b { display: block; font-size: 15px; font-weight: 600; }
+  .req small { color: var(--muted); font-size: 13px; }
+  .req .acts { display: flex; gap: 8px; }
+  .btn { height: 34px; padding: 0 14px; border-radius: 8px; background: var(--accent); color: var(--on-accent); font-weight: 700; font-size: 13px; transition: filter .15s; }
+  .btn:hover { filter: brightness(.92); }
+  .btn.sec { background: var(--card-2); color: var(--text); font-weight: 600; }
+  .btn.sec:hover { background: #272c2a; filter: none; }
+
+  .empty { text-align: center; color: var(--muted); padding: 64px 16px; }
+  .empty svg { width: 36px; height: 36px; margin-bottom: 10px; opacity: .6; }
+  .empty b { display: block; color: var(--text); font-size: 15px; margin-bottom: 4px; }
+
+  /* Direita */
+  .right { background: var(--side); border-left: 1px solid var(--line); padding: 24px 16px; overflow-y: auto; display: grid; align-content: start; gap: 24px; }
+  .right h2 { margin: 0 4px 8px; font-size: 14px; font-weight: 700; display: flex; justify-content: space-between; align-items: center; }
+  .right h2 a { font-size: 13px; font-weight: 500; color: var(--accent); }
+  .right h2 a:hover { text-decoration: underline; }
+  .row { display: flex; align-items: center; gap: 10px; padding: 8px; border-radius: 10px; }
+  .row:hover { background: var(--card-2); }
+  .row .t { flex: 1; min-width: 0; line-height: 1.35; }
+  .row .t b { display: block; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .row .t small { color: var(--muted); font-size: 12px; }
+  .add { height: 30px; padding: 0 12px; border-radius: 6px; background: var(--accent-soft); color: var(--accent); font-weight: 600; font-size: 13px; }
+  .add:hover { background: var(--accent); color: var(--on-accent); }
+  .add:disabled { background: var(--card-2); color: var(--muted); cursor: default; }
+
+  @media (max-width: 1180px) { .app { grid-template-columns: 240px minmax(0,1fr); } .right { display: none; } }
+  @media (max-width: 700px) { .app { grid-template-columns: 1fr; } .side { display: none; } .req { flex-wrap: wrap; } }
+  @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <linearGradient id="g1" x1="15%" y1="85%" x2="65%" y2="15%"><stop offset="0" stop-color="#00DFA0"/><stop offset=".4" stop-color="#39FF88"/><stop offset="1" stop-color="#7EFFBD"/></linearGradient>
+    <linearGradient id="g2" x1="35%" y1="15%" x2="85%" y2="85%"><stop offset="0" stop-color="#00DFA0"/><stop offset=".45" stop-color="#00B377"/><stop offset="1" stop-color="#004B1F"/></linearGradient>
+    <linearGradient id="g3" x1="50%" y1="45%" x2="50%" y2="90%"><stop offset="0" stop-color="#007A40"/><stop offset=".5" stop-color="#003516"/><stop offset="1" stop-color="#001609"/></linearGradient>
+    <symbol id="home" viewBox="0 0 24 24"><path d="M3 11l9-8 9 8M5 10v10h5v-6h4v6h5V10"/></symbol>
+    <symbol id="users" viewBox="0 0 24 24"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c.5-3.5 3.2-5.5 6.5-5.5s6 2 6.5 5.5M16 4.5a3.5 3.5 0 010 7M18 14.8c2 .6 3.3 2.3 3.6 5"/></symbol>
+    <symbol id="user" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21c.6-4 3.7-6 8-6s7.4 2 8 6"/></symbol>
+    <symbol id="uplus" viewBox="0 0 24 24"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c.5-3.5 3.2-5.5 6.5-5.5s6 2 6.5 5.5M19 8v6M16 11h6"/></symbol>
+    <symbol id="chat" viewBox="0 0 24 24"><path d="M4 5h16v11H9l-5 4z"/></symbol>
+    <symbol id="server" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="7" rx="2"/><rect x="3" y="13" width="18" height="7" rx="2"/><path d="M7 7.5h.01M7 16.5h.01"/></symbol>
+    <symbol id="gear" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M5 5l2 2M17 17l2 2M19 5l-2 2M7 17l-2 2"/></symbol>
+    <symbol id="search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/></symbol>
+    <symbol id="bell" viewBox="0 0 24 24"><path d="M6 17V11a6 6 0 0112 0v6l2 2H4zM10 21h4"/></symbol>
+    <symbol id="plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+    <symbol id="mic" viewBox="0 0 24 24"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0014 0M12 18v3"/></symbol>
+    <symbol id="head" viewBox="0 0 24 24"><path d="M4 15v-3a8 8 0 0116 0v3M4 15h4v5H5a1 1 0 01-1-1zM20 15h-4v5h3a1 1 0 001-1z"/></symbol>
+    <symbol id="send2" viewBox="0 0 24 24"><path d="M4 12l16-8-6 16-3-7z"/></symbol>
+  </defs>
+</svg>
+
+<div class="app">
+  <aside class="side">
+    <div class="logo" aria-label="Alura">
+      <svg viewBox="0 0 100 100" fill="none" aria-hidden="true">
+        <path d="M26 73C34 60 41 53 50 53C59 53 66 60 74 73C66 64 58 59 50 59C42 59 34 64 26 73Z" fill="url(#g3)"/>
+        <path d="M50 14C55 14 59 18 61 22L83 67C87 75 80 83 73 81C69 80 66 77 64 72L51 44C50 42 49 32 50 14Z" fill="url(#g2)"/>
+        <path d="M50 14C44 14 40 18 38 22L17 67C13 75 20 83 27 81C31 80 34 77 36 72L49 44C51 40 52 30 55 22C54 16 52 14 50 14Z" fill="url(#g1)"/>
+      </svg>
+    </div>
+    <nav class="nav" aria-label="Principal">
+      <a href="#"><svg class="i"><use href="#home"/></svg>Início</a>
+      <a href="#"><svg class="i"><use href="#users"/></svg>Amigos</a>
+      <a href="#"><svg class="i"><use href="#user"/></svg>Perfil</a>
+      <a href="#" aria-current="page"><svg class="i"><use href="#uplus"/></svg>Solicitações<span class="badge" id="nav-badge" hidden>0</span></a>
+      <a href="#"><svg class="i"><use href="#chat"/></svg>Mensagens</a>
+      <div class="gap"></div>
+      <a href="#"><svg class="i"><use href="#server"/></svg>Servidores</a>
+      <a href="#"><svg class="i"><use href="#gear"/></svg>Configurações</a>
+    </nav>
+    <h3>Seus servidores <button aria-label="Criar servidor"><svg class="i" style="width:16px;height:16px"><use href="#plus"/></svg></button></h3>
+    <a class="srv" href="#"><span class="av sq">T</span><div><b>Teste</b><small>1 online</small></div></a>
+    <div class="me">
+      <span class="av">C<i class="st dnd"></i></span>
+      <div class="who"><b>Continha</b><small>Não perturbe</small></div>
+      <button aria-label="Microfone"><svg class="i"><use href="#mic"/></svg></button>
+      <button aria-label="Fones"><svg class="i"><use href="#head"/></svg></button>
+      <button aria-label="Ajustes"><svg class="i"><use href="#gear"/></svg></button>
+    </div>
+  </aside>
+
+  <section class="main">
+    <header class="top">
+      <label class="search"><svg class="i"><use href="#search"/></svg><input type="search" placeholder="Buscar amigos, usuários, servidores"><kbd>/</kbd></label>
+      <span class="sp"></span>
+      <button class="icon-btn" aria-label="Notificações"><svg class="i"><use href="#bell"/></svg></button>
+    </header>
+
+    <div class="page">
+      <div class="col">
+        <div class="head">
+          <h1>Solicitações</h1>
+          <p>Pessoas que querem adicionar você como amigo.</p>
+        </div>
+
+        <div class="tabs" role="tablist">
+          <button class="tab" role="tab" aria-selected="true" data-t="received">Recebidas <small id="c-received">0</small></button>
+          <button class="tab" role="tab" aria-selected="false" data-t="sent">Enviadas <small id="c-sent">0</small></button>
+        </div>
+
+        <div id="list"></div>
+        <div class="empty" id="empty">
+          <svg class="i"><use href="#uplus"/></svg>
+          <b id="empty-t"></b>
+          <span id="empty-d"></span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <aside class="right">
+    <section>
+      <h2>Sugestões para você <a href="#">Ver todos</a></h2>
+      <div class="row"><span class="av">V</span><div class="t"><b>@V1na__</b><small>Membro Alura</small></div><button class="add" data-user="V1na__">Adicionar</button></div>
+      <div class="row"><span class="av">R</span><div class="t"><b>@realpecinha</b><small>Gamer</small></div><button class="add" data-user="realpecinha">Adicionar</button></div>
+    </section>
+  </aside>
+</div>
+
+<script>
+  // Dados: troque pelos reais do seu app. Ex.: { user: 'maria', note: 'há 2 horas' }
+  const data = { received: [], sent: [] };
+  let tab = 'received';
+
+  const texts = {
+    received: ['Nenhuma solicitação recebida', 'Quando alguém quiser ser seu amigo, aparece aqui.'],
+    sent: ['Nenhuma solicitação enviada', 'Use as sugestões ao lado ou a tela de Amigos para convidar alguém.']
+  };
+  const $ = id => document.getElementById(id);
+
+  function render() {
+    const list = $('list'); list.innerHTML = '';
+    data[tab].forEach((r, i) => {
+      const el = document.createElement('div'); el.className = 'req';
+      el.innerHTML = '<span class="av lg"></span><div class="t"><b></b><small></small></div><div class="acts"></div>';
+      el.querySelector('.av').textContent = r.user[0].toUpperCase();
+      el.querySelector('b').textContent = '@' + r.user;
+      el.querySelector('small').textContent = r.note || '';
+      const acts = el.querySelector('.acts');
+      const mk = (label, cls, fn) => { const b = document.createElement('button'); b.className = 'btn ' + cls; b.textContent = label; b.onclick = fn; acts.appendChild(b); };
+      if (tab === 'received') {
+        mk('Aceitar', '', () => { data.received.splice(i, 1); render(); });   // TODO: aceitar no backend
+        mk('Recusar', 'sec', () => { data.received.splice(i, 1); render(); }); // TODO: recusar no backend
+      } else {
+        mk('Cancelar', 'sec', () => { data.sent.splice(i, 1); render(); });    // TODO: cancelar no backend
+      }
+      list.appendChild(el);
+    });
+    $('c-received').textContent = data.received.length;
+    $('c-sent').textContent = data.sent.length;
+    const n = data.received.length;
+    $('nav-badge').hidden = !n; $('nav-badge').textContent = n;
+    const empty = !data[tab].length;
+    $('empty').hidden = !empty;
+    if (empty) { $('empty-t').textContent = texts[tab][0]; $('empty-d').textContent = texts[tab][1]; }
+  }
+
+  document.querySelectorAll('.tab').forEach(t => t.addEventListener('click', () => {
+    tab = t.dataset.t;
+    document.querySelectorAll('.tab').forEach(x => x.setAttribute('aria-selected', x === t));
+    render();
+  }));
+
+  document.querySelectorAll('.add').forEach(b => b.addEventListener('click', () => {
+    data.sent.push({ user: b.dataset.user, note: 'Aguardando resposta' }); // TODO: enviar no backend
+    b.textContent = 'Enviada'; b.disabled = true;
+    render();
+  }));
+
+  render();
+</script>
+</body>
+</html>

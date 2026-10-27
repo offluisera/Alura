@@ -1,5 +1,4 @@
-import { User, Unlock } from "lucide-react"
-import { Avatar, AvatarFallback } from "@alura/ui"
+import { Unlock, Ban } from "lucide-react"
 
 interface BlockedCardProps {
   id: string
@@ -16,47 +15,48 @@ export function BlockedCard({
   avatar_url,
   onUnblock
 }: BlockedCardProps) {
-  
-  const initials = name.substring(0, 2).toUpperCase()
+  const initials = name ? name.substring(0, 2).toUpperCase() : (username ? username.substring(0, 2).toUpperCase() : "AL")
 
   return (
-    <div className="group flex items-center justify-between p-4 h-[76px] rounded-[14px] bg-alura-surface1 border border-alura-border hover:bg-alura-surface2 transition-all cursor-default">
-      
-      <div className="flex items-center space-x-4 overflow-hidden opacity-60 group-hover:opacity-100 transition-opacity">
-        <div className="relative shrink-0 grayscale group-hover:grayscale-0 transition-all">
-          <Avatar className="w-[56px] h-[56px] rounded-full border border-alura-border">
+    <div className="amigos-friend group cursor-default">
+      <div className="flex items-center gap-3.5 flex-1 min-w-0 opacity-70 group-hover:opacity-100 transition-opacity">
+        <div className="amigos-av grayscale group-hover:grayscale-0 transition-all">
+          <div className="w-full h-full rounded-full overflow-hidden flex items-center justify-center shrink-0">
             {avatar_url ? (
-               <img src={avatar_url} className="w-full h-full rounded-full object-cover" />
+              <img 
+                src={avatar_url} 
+                alt={name || username} 
+                className="w-full h-full aspect-square rounded-full object-cover shrink-0" 
+              />
             ) : (
-               <AvatarFallback className="bg-alura-surface2 text-alura-textSecondary font-semibold">{initials}</AvatarFallback>
+              <span>{initials}</span>
             )}
-          </Avatar>
+          </div>
+          <i className="st dnd" />
         </div>
-        
-        <div className="flex flex-col justify-center overflow-hidden">
-          <div className="flex items-center gap-2">
-            <span className="font-bold text-[15px] text-alura-textPrimary truncate line-through decoration-alura-danger/50">@{username}</span>
-            <span className="text-[12px] font-medium text-alura-danger bg-alura-danger/10 px-2 py-0.5 rounded-full border border-alura-danger/20">
+
+        <div className="t">
+          <div className="n">
+            <b className="line-through decoration-[var(--amigos-dnd)]/50">@{username}</b>
+            <span className="amigos-stt dnd">
               Bloqueado
             </span>
           </div>
-          <span className="text-[13px] text-alura-textMuted mt-0.5 truncate">
-            {name}
-          </span>
+          <p>{name || `@${username}`}</p>
         </div>
       </div>
 
-      <div className="flex items-center gap-3 shrink-0 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
+      <div className="amigos-acts opacity-100">
         <button 
+          type="button"
           onClick={(e) => { e.stopPropagation(); onUnblock?.(); }}
-          className="h-10 px-4 flex items-center justify-center gap-2 rounded-[10px] bg-transparent hover:bg-alura-surface2 border border-alura-border hover:border-alura-accent text-alura-textMuted hover:text-alura-accent transition-colors"
+          className="h-8 px-3 rounded-[8px] bg-[var(--amigos-card-2)] hover:bg-[#272c2a] border border-[var(--amigos-line)] hover:border-[var(--amigos-accent)] text-[var(--amigos-muted)] hover:text-[var(--amigos-text)] text-[12px] font-semibold inline-flex items-center gap-1.5 transition-colors cursor-pointer"
           title="Desbloquear Usuário"
         >
-          <Unlock className="w-4 h-4" />
-          <span className="text-[13px] font-bold">Desbloquear</span>
+          <Unlock className="w-3.5 h-3.5" />
+          <span>Desbloquear</span>
         </button>
       </div>
-
     </div>
   )
 }

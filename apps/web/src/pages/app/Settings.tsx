@@ -3,7 +3,7 @@ import { useOutletContext, useNavigate } from "react-router-dom"
 import { Avatar, AvatarFallback, Button } from "@alura/ui"
 import {
   Settings as SettingsIcon, User, Lock, Bell, Palette, Mic,
-  Link as LinkIcon, Code, Camera, Edit2, Copy, Shield, ChevronRight,
+  Link as LinkIcon, Code, Camera, Edit2, Copy, Shield, ChevronRight, ChevronDown,
   Activity, Users, Plus, PlusCircle, Check, X, AlertCircle, Volume2,
   LogOut, RefreshCw, Sparkles, Smartphone, Globe, Eye, Monitor, AlertTriangle,
   VolumeX, Volume1, Play, BellOff, MessageSquare, PhoneCall, Radio, Send, EyeOff, BellRing, Sliders,
@@ -29,6 +29,7 @@ import { BackupCodesModal } from "../../components/settings/BackupCodesModal"
 import { SpotifyService, type SpotifyTrack, SPOTIFY_CLIENT_ID } from "../../lib/services/SpotifyService"
 import { SpotifyActivityCard, SpotifyIcon } from "../../components/shared/SpotifyActivityCard"
 import { compressImageToWebp } from "../../lib/utils/imageOptimizer"
+import { CleanvoiceService } from "../../lib/services/CleanvoiceService"
 import { MyInstantsService, type MyInstantSound, CURATED_MYINSTANTS_SOUNDS } from "../../lib/services/MyInstantsService"
 import {
   SUPPORTED_CONNECTIONS,
@@ -36,6 +37,7 @@ import {
   getConnectionData,
   type ConnectionMeta
 } from "../../components/shared/ConnectionIcons"
+import { Switch } from "../../components/ui/Switch"
 
 type TabType = "Conta" | "Privacidade" | "Notificações" | "Aparência" | "Som e Voz" | "Conexões" | "Avançado"
 
@@ -182,6 +184,42 @@ export function Settings() {
   // Submenus de "Minha Conta" estilo Discord (Anexo 2)
   const [activeAccountSubTab, setActiveAccountSubTab] = useState<"perfil" | "spotify" | "dados">("perfil")
 
+  // Seção ativa de Configurações (Alura new-de alura-configuracoes.html)
+  type SectionId = "perfil" | "conta" | "privacidade" | "notificacoes" | "aparencia" | "voz" | "conexoes" | "avancado"
+  const [activeSection, setActiveSection] = useState<SectionId>("perfil")
+
+  // Atalho de teclado ESC para fechar configurações instantaneamente
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && !["INPUT", "TEXTAREA", "SELECT"].includes((e.target as HTMLElement)?.tagName)) {
+        navigate(-1)
+      }
+    }
+    window.addEventListener("keydown", handleKeyDown)
+    return () => window.removeEventListener("keydown", handleKeyDown)
+  }, [navigate])
+
+  // Sincroniza activeSection com activeTab e sub-abas
+  useEffect(() => {
+    if (activeTab === "Conta") {
+      if (activeAccountSubTab === "perfil") setActiveSection("perfil")
+      else if (activeAccountSubTab === "dados") setActiveSection("conta")
+      else if (activeAccountSubTab === "spotify") setActiveSection("conexoes")
+    } else if (activeTab === "Privacidade") {
+      setActiveSection("privacidade")
+    } else if (activeTab === "Notificações") {
+      setActiveSection("notificacoes")
+    } else if (activeTab === "Aparência") {
+      setActiveSection("aparencia")
+    } else if (activeTab === "Som e Voz") {
+      setActiveSection("voz")
+    } else if (activeTab === "Conexões") {
+      setActiveSection("conexoes")
+    } else if (activeTab === "Avançado") {
+      setActiveSection("avancado")
+    }
+  }, [activeTab, activeAccountSubTab])
+
   // Integração com Spotify
   const [spotifyConnected, setSpotifyConnected] = useState<boolean>(() => {
     return Boolean(profile?.spotify_connected || SpotifyService.isConnected(profile))
@@ -234,22 +272,50 @@ export function Settings() {
   // Configurações de Aparência
   const [themeMode, setThemeMode] = useState<AluraThemeId>(() => {
     if (typeof window !== "undefined") {
-      return (localStorage.getItem("alura_theme") as AluraThemeId) || "forest"
+      const stored = localStorage.getItem("alura_theme") as AluraThemeId
+      if (stored) return stored
     }
-    return "forest"
+    return (profile?.theme as AluraThemeId) || "forest"
   })
   const [chatDensity, setChatDensity] = useState<"comfortable" | "compact">(() => {
     if (typeof window !== "undefined") {
-      return (localStorage.getItem("alura_chat_density") as any) || "comfortable"
+      const stored = localStorage.getItem("alura_chat_density") as any
+      if (stored) return stored
     }
-    return "comfortable"
+    return profile?.chat_density || "comfortable"
   })
   const [reducedMotion, setReducedMotion] = useState<boolean>(() => {
     if (typeof window !== "undefined") {
-      return localStorage.getItem("alura_reduced_motion") === "true"
+      const stored = localStorage.getItem("alura_reduced_motion")
+      if (stored !== null) return stored === "true"
     }
-    return false
+    return Boolean(profile?.reduced_motion)
   })
+
+  // Sincronizar tema e preferências visuais quando o perfil for carregado
+  useEffect(() => {
+    if (profile?.theme && profile.theme !== themeMode) {
+      setThemeMode(profile.theme as AluraThemeId)
+      try {
+        localStorage.setItem("alura_theme", profile.theme)
+        document.documentElement.setAttribute("data-theme", profile.theme)
+      } catch (e) {}
+    }
+    if (profile?.chat_density && profile.chat_density !== chatDensity) {
+      setChatDensity(profile.chat_density)
+      try {
+        localStorage.setItem("alura_chat_density", profile.chat_density)
+        document.documentElement.setAttribute("data-density", profile.chat_density)
+      } catch (e) {}
+    }
+    if (typeof profile?.reduced_motion === "boolean" && profile.reduced_motion !== reducedMotion) {
+      setReducedMotion(profile.reduced_motion)
+      try {
+        localStorage.setItem("alura_reduced_motion", String(profile.reduced_motion))
+        document.documentElement.setAttribute("data-reduced-motion", String(profile.reduced_motion))
+      } catch (e) {}
+    }
+  }, [profile?.theme, profile?.chat_density, profile?.reduced_motion])
 
   // Configurações de Som e Voz
   const [audioInputDevices, setAudioInputDevices] = useState<MediaDeviceInfo[]>([])
@@ -280,7 +346,10 @@ export function Settings() {
   const audioContextRef = useRef<AudioContext | null>(null)
   const analyserRef = useRef<AnalyserNode | null>(null)
   const micStreamRef = useRef<MediaStream | null>(null)
+  const micLiveFilteredStreamRef = useRef<MediaStream | null>(null)
+  const loopbackAudioRef = useRef<HTMLAudioElement | null>(null)
   const micAnimFrameRef = useRef<number | null>(null)
+  const micFilterCleanupRef = useRef<(() => void) | null>(null)
 
   // Submenus de "Voz, Vídeo & Audio"
   const [activeAudioSubTab, setActiveAudioSubTab] = useState<"voz" | "transmissao" | "sons" | "soundboard" | "avancado">("voz")
@@ -378,8 +447,14 @@ export function Settings() {
   ]
 
   // Configurações de Processamento Avançado
-  const [noiseSuppression, setNoiseSuppression] = useState<"krisp" | "standard" | "off">(() => {
-    return (typeof window !== "undefined" && (localStorage.getItem("alura_noise_suppression") as any)) || "krisp"
+  const [noiseSuppression, setNoiseSuppression] = useState<"alura_crisp_smart" | "alura_crisp_studio" | "alura_crisp_aggressive" | "krisp" | "cleanvoice" | "standard" | "passthrough" | "off">(() => {
+    if (typeof window !== "undefined") {
+      const saved = localStorage.getItem("alura_noise_suppression")
+      if (saved === "krisp") return "alura_crisp_smart"
+      if (saved === "cleanvoice") return "alura_crisp_aggressive"
+      if (saved) return saved as any
+    }
+    return "alura_crisp_smart"
   })
   const [echoCancellation, setEchoCancellation] = useState<boolean>(() => {
     return typeof window !== "undefined" ? localStorage.getItem("alura_echo_cancellation") !== "false" : true
@@ -393,6 +468,77 @@ export function Settings() {
   const [qosPriority, setQosPriority] = useState<boolean>(() => {
     return typeof window !== "undefined" ? localStorage.getItem("alura_qos_priority") !== "false" : true
   })
+
+  // Dropdown customizado e estilizado do Alura Crisp DSP
+  const [isNoiseDropdownOpen, setIsNoiseDropdownOpen] = useState(false)
+  const noiseDropdownRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (noiseDropdownRef.current && !noiseDropdownRef.current.contains(e.target as Node)) {
+        setIsNoiseDropdownOpen(false)
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside)
+    return () => document.removeEventListener("mousedown", handleClickOutside)
+  }, [])
+
+  const ALURA_NOISE_PROFILES = [
+    {
+      id: "alura_crisp_smart",
+      legacyId: "krisp",
+      label: "Alura Crisp Inteligente",
+      shortLabel: "Crisp Inteligente",
+      desc: "Equilíbrio cirúrgico contra teclado mecânico, cliques e ventilador.",
+      badge: "Recomendado",
+      badgeColor: "bg-alura-accent/20 text-alura-accent border-alura-accent/30",
+    },
+    {
+      id: "alura_crisp_studio",
+      legacyId: null,
+      label: "Alura Crisp Estúdio",
+      shortLabel: "Crisp Estúdio",
+      desc: "Resposta aberta até 18kHz com corte suave de piso para podcasts e música.",
+      badge: "Fidelidade Alta",
+      badgeColor: "bg-emerald-500/20 text-emerald-400 border-emerald-500/30",
+    },
+    {
+      id: "alura_crisp_aggressive",
+      legacyId: "cleanvoice",
+      label: "Alura Crisp Agressivo",
+      shortLabel: "Crisp Agressivo",
+      desc: "Isolamento vocal reforçado com piso a -80dB para ambientes extremos.",
+      badge: "Lan House",
+      badgeColor: "bg-amber-500/20 text-amber-400 border-amber-500/30",
+    },
+    {
+      id: "standard",
+      legacyId: null,
+      label: "Padrão WebRTC",
+      shortLabel: "Padrão",
+      desc: "Filtro acústico nativo suave do navegador a 80Hz.",
+      badge: "Básico",
+      badgeColor: "bg-alura-surface3 text-alura-textMuted border-alura-border",
+    },
+    {
+      id: "passthrough",
+      legacyId: null,
+      label: "Pass-Through Externo",
+      shortLabel: "Pass-Through",
+      desc: "Para RTX Voice, Krisp Desktop, Elgato ou Sonar (Desativa AGC).",
+      badge: "Hardware",
+      badgeColor: "bg-blue-500/20 text-blue-400 border-blue-500/30",
+    },
+    {
+      id: "off",
+      legacyId: null,
+      label: "Desativado",
+      shortLabel: "Desativado",
+      desc: "Sinal analógico bruto do microfone sem filtros.",
+      badge: "Raw",
+      badgeColor: "bg-red-500/20 text-red-400 border-red-500/30",
+    },
+  ]
 
   // Configurações adicionais de Voz (Modo de Entrada / PTT)
   const [inputMode, setInputMode] = useState<"voice" | "ptt">(() => {
@@ -614,7 +760,7 @@ export function Settings() {
     let lastTrackId = ""
 
     const pollSpotify = async () => {
-      const token = SpotifyService.getStoredToken()
+      const token = await SpotifyService.getValidToken()
       if (token) {
         const track = await SpotifyService.fetchCurrentlyPlaying(token)
         const currentId = track && track.isPlaying ? `${track.trackName}::${track.artistName}` : ""
@@ -663,13 +809,13 @@ export function Settings() {
 
   const handleRefreshSpotify = async () => {
     setIsRefreshingSpotify(true)
-    const token = SpotifyService.getStoredToken()
+    const token = await SpotifyService.getValidToken()
     if (!token) {
       setIsRefreshingSpotify(false)
       showToast({
         type: "warning",
         title: "Sessão Expirada",
-        message: "Por favor, conecte sua conta do Spotify para atualizar."
+        message: "Por favor, conecte ou reconecte sua conta do Spotify para atualizar."
       })
       return
     }
@@ -689,7 +835,7 @@ export function Settings() {
       showToast({
         type: "info",
         title: "Nenhuma Música Detectada",
-        message: "Abra o Spotify e dê play em qualquer música para sincronizar."
+        message: "Dê play em qualquer música no Spotify e confira se a opção 'Compartilhar atividade no Spotify' está ativada nas preferências do aplicativo."
       })
     }
     setIsRefreshingSpotify(false)
@@ -1026,23 +1172,34 @@ export function Settings() {
 
   async function startMicTest() {
     try {
+      const constraints = CleanvoiceService.getAudioConstraints(noiseSuppression, selectedAudioInput)
       const stream = await navigator.mediaDevices.getUserMedia({
-        audio: selectedAudioInput ? { deviceId: { exact: selectedAudioInput } } : true
+        audio: constraints
       })
       micStreamRef.current = stream
 
+      // Aplica o filtro de áudio/ruído selecionado
+      const { filteredStream, cleanup } = CleanvoiceService.createLiveFilter(stream, noiseSuppression)
+      micFilterCleanupRef.current = cleanup
+      micLiveFilteredStreamRef.current = filteredStream
+
       const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)()
+      if (audioCtx.state === 'suspended') {
+        audioCtx.resume().catch(() => {})
+      }
       audioContextRef.current = audioCtx
       const analyser = audioCtx.createAnalyser()
       analyser.fftSize = 256
       analyserRef.current = analyser
 
-      const source = audioCtx.createMediaStreamSource(stream)
+      const source = audioCtx.createMediaStreamSource(filteredStream)
       source.connect(analyser)
 
-      // Loopback opcional para retorno da própria voz nos fones
-      if (loopbackMic) {
-        source.connect(audioCtx.destination)
+      // Loopback real via elemento HTML Audio nos fones de ouvido (garantido sem restrição de feedback)
+      if (loopbackMic && loopbackAudioRef.current) {
+        loopbackAudioRef.current.srcObject = filteredStream
+        loopbackAudioRef.current.volume = 1.0
+        loopbackAudioRef.current.play().catch(e => console.warn("Loopback play:", e))
       }
 
       setIsTestingMic(true)
@@ -1073,6 +1230,15 @@ export function Settings() {
 
   function stopMicTest() {
     if (micAnimFrameRef.current) cancelAnimationFrame(micAnimFrameRef.current)
+    if (loopbackAudioRef.current) {
+      loopbackAudioRef.current.srcObject = null
+      loopbackAudioRef.current.pause()
+    }
+    if (micFilterCleanupRef.current) {
+      micFilterCleanupRef.current()
+      micFilterCleanupRef.current = null
+    }
+    micLiveFilteredStreamRef.current = null
     if (micStreamRef.current) {
       micStreamRef.current.getTracks().forEach(t => t.stop())
       micStreamRef.current = null
@@ -1426,7 +1592,7 @@ export function Settings() {
     setHardwareAcceleration(true)
     setSoundboardVolume(80)
     setAllowOthersSoundboard(true)
-    setNoiseSuppression("krisp")
+    setNoiseSuppression("alura_crisp_smart")
     setEchoCancellation(true)
     setAutoGainControl(true)
     setAudioSubsystem("standard")
@@ -1689,176 +1855,93 @@ export function Settings() {
 
   const initials = (displayName || "U").substring(0, 2).toUpperCase()
 
-  const NAV_ITEMS: { id: TabType; icon: React.ReactNode; label: string }[] = [
-    { id: "Conta", icon: <User className="w-4 h-4" />, label: "Minha Conta" },
-    { id: "Privacidade", icon: <Lock className="w-4 h-4" />, label: "Privacidade & Segurança" },
-    { id: "Notificações", icon: <Bell className="w-4 h-4" />, label: "Notificações" },
-    { id: "Aparência", icon: <Palette className="w-4 h-4" />, label: "Aparência" },
-    { id: "Som e Voz", icon: <Mic className="w-4 h-4" />, label: "Voz, Vídeo & Audio" },
-    { id: "Conexões", icon: <LinkIcon className="w-4 h-4" />, label: "Conexões" },
-    { id: "Avançado", icon: <Code className="w-4 h-4" />, label: "Avançado" }
+  const SETTINGS_SECTIONS = [
+    { id: "perfil" as SectionId, label: "Perfil e identidade", icon: <User className="w-4 h-4" />, tab: "Conta" as TabType, subTab: "perfil" as const },
+    { id: "conta" as SectionId, label: "Dados da conta", icon: <Database className="w-4 h-4" />, tab: "Conta" as TabType, subTab: "dados" as const },
+    { id: "privacidade" as SectionId, label: "Privacidade e segurança", icon: <Lock className="w-4 h-4" />, tab: "Privacidade" as TabType },
+    { id: "notificacoes" as SectionId, label: "Notificações", icon: <Bell className="w-4 h-4" />, tab: "Notificações" as TabType },
+    { id: "aparencia" as SectionId, label: "Aparência", icon: <Palette className="w-4 h-4" />, tab: "Aparência" as TabType },
+    { id: "voz" as SectionId, label: "Voz, vídeo e áudio", icon: <Mic className="w-4 h-4" />, tab: "Som e Voz" as TabType },
+    { id: "conexoes" as SectionId, label: "Conexões", icon: <LinkIcon className="w-4 h-4" />, tab: "Conexões" as TabType },
+    { id: "avancado" as SectionId, label: "Avançado", icon: <Code className="w-4 h-4" />, tab: "Avançado" as TabType },
   ]
+
+  const handleSelectSection = (item: typeof SETTINGS_SECTIONS[number]) => {
+    setActiveSection(item.id)
+    setActiveTab(item.tab)
+    if (item.subTab) {
+      setActiveAccountSubTab(item.subTab)
+    }
+  }
 
   return (
     <div className="flex-1 overflow-hidden flex flex-col bg-alura-background relative">
 
-      {/* Barra de Título Superior de Configurações com Botão ESC */}
-      <header className="h-16 px-6 lg:px-10 border-b border-alura-border/40 flex items-center justify-between shrink-0 bg-alura-surface1/60 backdrop-blur-md z-10">
-        <div className="flex items-center gap-3">
-          <div className="w-9 h-9 rounded-xl bg-alura-accent/15 border border-alura-accent/30 flex items-center justify-center text-alura-accent shadow-[0_0_12px_rgba(57,255,136,0.2)]">
-            <SettingsIcon className="w-5 h-5" />
-          </div>
-          <div>
-            <h1 className="text-lg font-bold text-white tracking-tight">Configurações do Usuário</h1>
-            <p className="text-[12px] text-alura-textSecondary">Gerencie sua identidade, privacidade e preferências da Alura.</p>
-          </div>
-        </div>
-
-        {/* Botão ESC estilo Discord / Modern Desktop */}
+      {/* Barra de Título Superior de Configurações - alura-configuracoes.html */}
+      <header className="h-16 px-6 lg:px-8 border-b border-alura-border/60 flex items-center gap-3 shrink-0 bg-alura-navigation z-10">
+        <svg className="w-7 h-7 shrink-0" viewBox="0 0 100 100" fill="none" aria-label="Alura">
+          <defs>
+            <linearGradient id="g1" x1="15%" y1="85%" x2="65%" y2="15%"><stop offset="0" stopColor="var(--accent, #00DFA0)"/><stop offset=".4" stopColor="#39FF88"/><stop offset="1" stopColor="#7EFFBD"/></linearGradient>
+            <linearGradient id="g2" x1="35%" y1="15%" x2="85%" y2="85%"><stop offset="0" stopColor="var(--accent, #00DFA0)"/><stop offset=".45" stopColor="#00B377"/><stop offset="1" stopColor="#004B1F"/></linearGradient>
+            <linearGradient id="g3" x1="50%" y1="45%" x2="50%" y2="90%"><stop offset="0" stopColor="#007A40"/><stop offset=".5" stopColor="#003516"/><stop offset="1" stopColor="#001609"/></linearGradient>
+          </defs>
+          <path d="M26 73C34 60 41 53 50 53C59 53 66 60 74 73C66 64 58 59 50 59C42 59 34 64 26 73Z" fill="url(#g3)"/>
+          <path d="M50 14C55 14 59 18 61 22L83 67C87 75 80 83 73 81C69 80 66 77 64 72L51 44C50 42 49 32 50 14Z" fill="url(#g2)"/>
+          <path d="M50 14C44 14 40 18 38 22L17 67C13 75 20 83 27 81C31 80 34 77 36 72L49 44C51 40 52 30 55 22C54 16 52 14 50 14Z" fill="url(#g1)"/>
+        </svg>
+        <h1 className="text-[17px] font-bold text-alura-textPrimary tracking-tight">Configurações</h1>
+        <div className="flex-1" />
         <button
           onClick={() => navigate(-1)}
-          className="flex items-center gap-2 px-3.5 py-1.5 rounded-xl border border-alura-border hover:border-alura-accent/50 text-alura-textSecondary hover:text-white bg-alura-surface2/60 hover:bg-alura-surface2 transition-all group cursor-pointer"
+          className="h-9 px-3.5 rounded-lg bg-alura-surface1 border border-alura-border/60 text-alura-textSecondary hover:text-alura-textPrimary hover:bg-alura-surface2 flex items-center gap-2 text-[13px] font-semibold transition-colors cursor-pointer"
           title="Fechar configurações (ESC)"
         >
-          <div className="w-6 h-6 rounded-full border border-alura-border group-hover:border-alura-accent flex items-center justify-center text-alura-textMuted group-hover:text-alura-accent transition-colors">
-            <X className="w-3.5 h-3.5" />
-          </div>
-          <span className="text-[11px] font-mono uppercase font-bold tracking-wider text-alura-textMuted group-hover:text-alura-accent">ESC</span>
+          <span>Fechar</span>
+          <kbd className="font-mono text-[11px] leading-tight px-1.5 py-0.5 rounded bg-alura-surface2 text-alura-textMuted border border-alura-border/40">ESC</kbd>
         </button>
       </header>
 
       {/* Conteúdo com Sidebar de Abas e Painel Central */}
-      <div className="flex flex-1 overflow-hidden p-6 lg:p-8 gap-8 w-full max-w-[1440px] mx-auto">
+      <div className="flex flex-1 overflow-hidden w-full max-w-[1440px] mx-auto">
 
-        {/* Sidebar de Configurações */}
-        <div className="w-[240px] shrink-0 flex flex-col justify-between">
+        {/* Sidebar de Configurações - alura-configuracoes.html */}
+        <div className="w-[260px] shrink-0 flex flex-col justify-between bg-alura-navigation border-r border-alura-border/60 p-4 overflow-y-auto">
           <div className="space-y-1">
             <span className="text-[11px] font-bold text-alura-textDisabled uppercase tracking-wider px-3 mb-2 block">
-              Configurações de Usuário
+              Configurações de usuário
             </span>
-            <nav className="flex flex-col space-y-1">
-              {NAV_ITEMS.map(item => {
-                const isActive = activeTab === item.id
+            <nav className="flex flex-col space-y-1" aria-label="Seções">
+              {SETTINGS_SECTIONS.map(item => {
+                const isCurrent = activeSection === item.id
                 return (
-                  <div key={item.id} className="space-y-0.5">
-                    <button
-                      onClick={() => {
-                        setActiveTab(item.id)
-                      }}
-                      className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-[13px] font-medium transition-all text-left cursor-pointer ${isActive
-                          ? 'bg-alura-selected text-alura-accent border border-alura-accent/30 shadow-[0_0_15px_rgba(57,255,136,0.12)] font-semibold'
-                          : 'text-alura-textSecondary hover:text-white hover:bg-alura-hover border border-transparent'
-                        }`}
-                    >
-                      <div className={isActive ? "text-alura-accent" : "text-alura-textMuted"}>
-                        {item.icon}
-                      </div>
-                      {item.label}
-                    </button>
-
-                    {/* Submenu Vertical estilo Discord para Minha Conta (Anexo 2) */}
-                    {item.id === "Conta" && isActive && (
-                      <div className="relative ml-5 pl-3.5 my-1.5 flex flex-col space-y-1 border-l-2 border-white/10 animate-in fade-in duration-200">
-                        {[
-                          { id: "perfil", label: "Perfil & Identidade" },
-                          { id: "spotify", label: "Spotify & Conexões" },
-                          { id: "dados", label: "Dados da Conta" },
-                        ].map((sub) => {
-                          const isSubActive = activeAccountSubTab === sub.id
-                          return (
-                            <button
-                              key={sub.id}
-                              onClick={() => setActiveAccountSubTab(sub.id as any)}
-                              className={`relative py-1 px-2.5 text-left text-[13px] transition-colors rounded-md cursor-pointer flex items-center ${isSubActive
-                                  ? "text-white font-semibold"
-                                  : "text-alura-textMuted hover:text-alura-textSecondary"
-                                }`}
-                            >
-                              {/* Barra indicadora vertical ativa sobreposta na linha guia (Anexo 2) */}
-                              {isSubActive && (
-                                <span className="absolute -left-[16px] top-1/2 -translate-y-1/2 w-[3px] h-4 bg-white rounded-full shadow-[0_0_6px_rgba(255,255,255,0.8)]" />
-                              )}
-                              {sub.label}
-                            </button>
-                          )
-                        })}
-                      </div>
-                    )}
-
-                    {/* Submenu Vertical estilo Discord para Privacidade */}
-                    {item.id === "Privacidade" && isActive && (
-                      <div className="relative ml-5 pl-3.5 my-1.5 flex flex-col space-y-1 border-l-2 border-white/10">
-                        {[
-                          { id: "social", label: "Privacidade Social" },
-                          { id: "seguranca", label: "Senha e Segurança" },
-                          { id: "bloqueados", label: "Usuários Bloqueados" },
-                          { id: "dados", label: "Dados e Privacidade" },
-                        ].map((sub) => {
-                          const isSubActive = activePrivacySubTab === sub.id
-                          return (
-                            <button
-                              key={sub.id}
-                              onClick={() => setActivePrivacySubTab(sub.id as any)}
-                              className={`relative py-1 px-2.5 text-left text-[13px] transition-colors rounded-md cursor-pointer flex items-center ${isSubActive
-                                  ? "text-white font-semibold"
-                                  : "text-alura-textMuted hover:text-alura-textSecondary"
-                                }`}
-                            >
-                              {/* Barra indicadora vertical ativa sobreposta na linha guia */}
-                              {isSubActive && (
-                                <span className="absolute -left-[16px] top-1/2 -translate-y-1/2 w-[3px] h-4 bg-white rounded-full shadow-[0_0_6px_rgba(255,255,255,0.8)]" />
-                              )}
-                              {sub.label}
-                            </button>
-                          )
-                        })}
-                      </div>
-                    )}
-
-                    {/* Submenu Vertical estilo Discord com linha guia e indicador ativo */}
-                    {item.id === "Som e Voz" && isActive && (
-                      <div className="relative ml-5 pl-3.5 my-1.5 flex flex-col space-y-1 border-l-2 border-white/10">
-                        {[
-                          { id: "voz", label: "Voz" },
-                          { id: "transmissao", label: "Transmissão" },
-                          { id: "sons", label: "Sons" },
-                          { id: "soundboard", label: "Painel de efeitos sonoros" },
-                          { id: "avancado", label: "Avançado" },
-                        ].map((sub) => {
-                          const isSubActive = activeAudioSubTab === sub.id
-                          return (
-                            <button
-                              key={sub.id}
-                              onClick={() => setActiveAudioSubTab(sub.id as any)}
-                              className={`relative py-1 px-2.5 text-left text-[13px] transition-colors rounded-md cursor-pointer flex items-center ${isSubActive
-                                  ? "text-white font-semibold"
-                                  : "text-alura-textMuted hover:text-alura-textSecondary"
-                                }`}
-                            >
-                              {/* Barra indicadora vertical ativa sobreposta na linha guia */}
-                              {isSubActive && (
-                                <span className="absolute -left-[16px] top-1/2 -translate-y-1/2 w-[3px] h-4 bg-white rounded-full shadow-[0_0_6px_rgba(255,255,255,0.8)]" />
-                              )}
-                              {sub.label}
-                            </button>
-                          )
-                        })}
-                      </div>
-                    )}
-                  </div>
+                  <button
+                    key={item.id}
+                    onClick={() => handleSelectSection(item)}
+                    aria-current={isCurrent}
+                    className={`w-full relative flex items-center gap-3 h-10 px-3 rounded-lg text-[13px] font-medium transition-all text-left cursor-pointer ${
+                      isCurrent
+                        ? "bg-alura-accent/12 text-alura-textPrimary font-semibold before:content-[''] before:absolute before:-left-4 before:top-2 before:bottom-2 before:w-[3px] before:rounded-r-md before:bg-alura-accent"
+                        : "text-alura-textMuted hover:text-alura-textPrimary hover:bg-alura-surface2/60"
+                    }`}
+                  >
+                    <div className={isCurrent ? "text-alura-accent" : "text-alura-textMuted"}>
+                      {item.icon}
+                    </div>
+                    <span>{item.label}</span>
+                  </button>
                 )
               })}
             </nav>
           </div>
 
-          {/* Botão de Logout Rápido com Confirmação Customizada */}
-          <div className="pt-4 border-t border-alura-border/40">
+          {/* Sair da Conta (Danger) */}
+          <div className="pt-3 border-t border-alura-border/50 mt-4">
             <button
               onClick={handleLogoutClick}
-              className="w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-[13px] font-medium text-alura-danger/80 hover:text-alura-danger hover:bg-alura-danger/10 border border-transparent hover:border-alura-danger/20 transition-colors cursor-pointer"
+              className="w-full flex items-center gap-3 h-10 px-3 rounded-lg text-[13px] font-medium text-alura-danger/90 hover:text-alura-danger hover:bg-alura-danger/10 transition-colors text-left cursor-pointer"
             >
-              <LogOut className="w-4 h-4" />
-              Sair da Conta
+              <LogOut className="w-4 h-4 text-alura-danger" />
+              <span>Sair da conta</span>
             </button>
           </div>
         </div>
@@ -2061,6 +2144,55 @@ export function Settings() {
                               >
                                 <t.icon className="w-3.5 h-3.5" />
                                 {t.label}
+                              </button>
+                            )
+                          })}
+                        </div>
+                      </div>
+
+                      {/* Jogos Favoritos (SteamDB) */}
+                      <div className="pt-2">
+                        <div className="flex items-center justify-between mb-2">
+                          <label className="text-[12px] font-medium text-alura-textSecondary flex items-center gap-1.5">
+                            <Gamepad2 className="w-3.5 h-3.5 text-alura-accent" />
+                            Jogos Favoritos (SteamDB)
+                          </label>
+                          <span className="text-[11px] text-alura-textMuted">
+                            {favoriteGames.length}/6 selecionados
+                          </span>
+                        </div>
+                        <div className="max-h-48 overflow-y-auto custom-scrollbar p-2 rounded-xl bg-alura-surface2 border border-alura-border grid grid-cols-2 sm:grid-cols-3 gap-2">
+                          {GAMES_DB.map((game) => {
+                            const isSelected = favoriteGames.includes(game.id)
+                            return (
+                              <button
+                                type="button"
+                                key={game.id}
+                                onClick={() => {
+                                  if (isSelected) {
+                                    setFavoriteGames(favoriteGames.filter((id) => id !== game.id))
+                                  } else {
+                                    if (favoriteGames.length < 6) {
+                                      setFavoriteGames([...favoriteGames, game.id])
+                                    }
+                                  }
+                                }}
+                                className={`flex items-center gap-2 p-1.5 rounded-lg border text-left transition-all cursor-pointer ${
+                                  isSelected
+                                    ? "bg-alura-selected text-alura-textPrimary border-alura-accent shadow-[0_0_8px_rgba(57,255,136,0.2)]"
+                                    : "bg-alura-surface1 text-alura-textSecondary border-alura-border hover:border-alura-borderStrong hover:text-white"
+                                }`}
+                              >
+                                <img
+                                  src={game.image}
+                                  alt={game.name}
+                                  className="w-7 h-9 rounded object-cover shrink-0"
+                                />
+                                <div className="min-w-0 flex-1">
+                                  <p className="text-[11px] font-bold truncate leading-tight">{game.name}</p>
+                                  <span className="text-[9px] text-alura-textMuted block truncate">{game.genre}</span>
+                                </div>
+                                {isSelected && <Check className="w-3.5 h-3.5 text-alura-accent shrink-0 mr-1" />}
                               </button>
                             )
                           })}
@@ -2282,6 +2414,36 @@ export function Settings() {
                         )}
                       </div>
                     </div>
+
+                    {!spotifyConnected && (
+                      <div className="mt-4 p-4 rounded-xl border border-alura-border/60 bg-alura-surface2/40 text-xs space-y-2.5">
+                        <div className="flex items-center justify-between">
+                          <span className="font-semibold text-white flex items-center gap-1.5 text-xs">
+                            <LinkIcon className="w-3.5 h-3.5 text-alura-accent" /> Redirect URI oficial configurada:
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              navigator.clipboard.writeText(SpotifyService.getRedirectUri())
+                              showToast({
+                                type: "success",
+                                title: "Copiado!",
+                                message: "Redirect URI copiada para a área de transferência."
+                              })
+                            }}
+                            className="px-2.5 py-1 rounded-lg bg-alura-surface1 border border-alura-border hover:border-alura-accent text-[11px] text-alura-accent font-bold transition-colors cursor-pointer"
+                          >
+                            Copiar URI
+                          </button>
+                        </div>
+                        <code className="block p-2 rounded-lg bg-black/50 font-mono text-[11px] text-[#39ff88] truncate select-all">
+                          {SpotifyService.getRedirectUri()}
+                        </code>
+                        <p className="text-[11px] text-alura-textMuted leading-relaxed">
+                          Se o Spotify exibir <em>"redirect_uri: Not matching configuration"</em>, adicione esta URL exata em <strong>Redirect URIs</strong> nas configurações do seu aplicativo no <a href="https://developer.spotify.com/dashboard" target="_blank" rel="noreferrer" className="text-alura-accent underline hover:brightness-125">Spotify Developer Dashboard</a>.
+                        </p>
+                      </div>
+                    )}
                   </div>
 
                   {/* Card 2: Preferências de Visibilidade & Privacidade */}
@@ -2981,7 +3143,7 @@ export function Settings() {
                             value={newPassword}
                             onChange={(e) => setNewPassword(e.target.value)}
                             placeholder="Mínimo 6 caracteres"
-                            className="w-full bg-[#001B0B] border border-alura-border rounded-xl px-4 py-2.5 pr-10 text-[13px] text-white placeholder:text-alura-textDisabled focus:outline-none focus:border-alura-accent transition-colors"
+                            className="w-full bg-alura-surface1 border border-alura-border rounded-xl px-4 py-2.5 pr-10 text-[13px] text-alura-textPrimary placeholder:text-alura-textDisabled focus:outline-none focus:border-alura-accent transition-colors"
                           />
                           <button
                             type="button"
@@ -3023,7 +3185,7 @@ export function Settings() {
                             value={confirmPassword}
                             onChange={(e) => setConfirmPassword(e.target.value)}
                             placeholder="Repita a nova senha"
-                            className="w-full bg-[#001B0B] border border-alura-border rounded-xl px-4 py-2.5 pr-10 text-[13px] text-white placeholder:text-alura-textDisabled focus:outline-none focus:border-alura-accent transition-colors"
+                            className="w-full bg-alura-surface1 border border-alura-border rounded-xl px-4 py-2.5 pr-10 text-[13px] text-alura-textPrimary placeholder:text-alura-textDisabled focus:outline-none focus:border-alura-accent transition-colors"
                           />
                           <button
                             type="button"
@@ -3600,6 +3762,9 @@ export function Settings() {
                               localStorage.setItem("alura_theme", t.id)
                               document.documentElement.setAttribute("data-theme", t.id)
                             } catch (e) {}
+                            if (user?.id) {
+                              supabase.from("profiles").update({ theme: t.id }).eq("id", user.id).then(() => {})
+                            }
                             showToast({
                               type: "success",
                               title: "Tema Aplicado!",
@@ -3755,6 +3920,9 @@ export function Settings() {
                           localStorage.setItem("alura_chat_density", "comfortable")
                           document.documentElement.setAttribute("data-density", "comfortable")
                         } catch (e) {}
+                        if (user?.id) {
+                          supabase.from("profiles").update({ chat_density: "comfortable" }).eq("id", user.id).then(() => {})
+                        }
                         showToast({ type: "info", title: "Densidade de Mensagens", message: "Modo Confortável ativado." })
                       }}
                       className={`p-4 rounded-xl border cursor-pointer transition-all ${
@@ -3774,6 +3942,9 @@ export function Settings() {
                           localStorage.setItem("alura_chat_density", "compact")
                           document.documentElement.setAttribute("data-density", "compact")
                         } catch (e) {}
+                        if (user?.id) {
+                          supabase.from("profiles").update({ chat_density: "compact" }).eq("id", user.id).then(() => {})
+                        }
                         showToast({ type: "info", title: "Densidade de Mensagens", message: "Modo Compacto ativado." })
                       }}
                       className={`p-4 rounded-xl border cursor-pointer transition-all ${
@@ -3802,6 +3973,9 @@ export function Settings() {
                         localStorage.setItem("alura_reduced_motion", String(next))
                         document.documentElement.setAttribute("data-reduced-motion", String(next))
                       } catch (e) {}
+                      if (user?.id) {
+                        supabase.from("profiles").update({ reduced_motion: next }).eq("id", user.id).then(() => {})
+                      }
                       showToast({ type: "info", title: "Movimento", message: next ? "Animações reduzidas." : "Animações normais restauradas." })
                     }}
                     className={`w-12 h-6 rounded-full transition-colors flex items-center p-1 cursor-pointer ${reducedMotion ? "bg-alura-accent justify-end" : "bg-alura-surface3 justify-start"}`}
@@ -3967,28 +4141,136 @@ export function Settings() {
                       />
                     </div>
 
-                    <div className="flex items-center justify-between pt-1">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-1">
                       <span className={`text-[11px] font-medium ${isTestingMic ? "text-alura-accent animate-pulse" : "text-alura-textMuted"}`}>
                         {isTestingMic ? `Microfone ativo: Fale agora... Nível: ${micLevel}%` : "Pressione 'Testar Microfone' para iniciar."}
                       </span>
                       {isTestingMic && (
-                        <label className="flex items-center gap-2 cursor-pointer text-xs text-alura-textSecondary hover:text-white">
-                          <input
-                            type="checkbox"
+                        <div className="flex items-center gap-2.5 px-3 py-1.5 rounded-xl bg-alura-surface1 border border-alura-border/60 shadow-sm animate-in fade-in">
+                          <Switch
+                            id="loopback-mic-switch"
                             checked={loopbackMic}
-                            onChange={(e) => {
-                              const checked = e.target.checked
+                            onCheckedChange={(checked) => {
                               setLoopbackMic(checked)
-                              if (isTestingMic) {
-                                stopMicTest()
-                                setTimeout(startMicTest, 100)
+                              if (loopbackAudioRef.current) {
+                                if (checked) {
+                                  const streamToPlay = micLiveFilteredStreamRef.current || micStreamRef.current
+                                  if (streamToPlay) {
+                                    loopbackAudioRef.current.srcObject = streamToPlay
+                                    loopbackAudioRef.current.volume = 1.0
+                                    loopbackAudioRef.current.play().catch(e => console.warn("Loopback play:", e))
+                                  }
+                                } else {
+                                  loopbackAudioRef.current.srcObject = null
+                                  loopbackAudioRef.current.pause()
+                                }
                               }
                             }}
-                            className="accent-alura-accent rounded"
                           />
-                          <span>Ouvir retorno nos fones (Loopback)</span>
-                        </label>
+                          <label htmlFor="loopback-mic-switch" className="text-xs font-semibold text-alura-textPrimary cursor-pointer select-none">
+                            Ouvir retorno nos fones (Loopback)
+                          </label>
+                        </div>
                       )}
+                      {/* Elemento oculto de áudio para loopback real nos fones */}
+                      <audio ref={loopbackAudioRef} autoPlay playsInline className="hidden" />
+                    </div>
+
+                    {/* Alura Crisp DSP - Cancelamento Nativo */}
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3.5 bg-alura-surface2/60 border border-alura-border rounded-xl">
+                      <div className="flex items-center gap-2.5">
+                        <div className="w-8 h-8 rounded-lg bg-alura-accent/15 border border-alura-accent/30 flex items-center justify-center text-alura-accent shrink-0">
+                          <Sparkles className="w-4 h-4" />
+                        </div>
+                        <div>
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-xs font-bold text-white">Alura Crisp Engine</span>
+                            <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-alura-accent/20 text-alura-accent border border-alura-accent/30">
+                              DSP Nativo
+                            </span>
+                          </div>
+                          <span className="text-[11px] text-alura-textMuted block">
+                            Cancelamento em tempo real de teclado mecânico, cliques e ruído ambiente (100% offline).
+                          </span>
+                        </div>
+                      </div>
+                      <div className="relative" ref={noiseDropdownRef}>
+                        {(() => {
+                          const activeProfile = ALURA_NOISE_PROFILES.find(
+                            (p) => noiseSuppression === p.id || (p.legacyId && noiseSuppression === p.legacyId)
+                          ) || ALURA_NOISE_PROFILES[0]
+
+                          return (
+                            <>
+                              <button
+                                type="button"
+                                onClick={() => setIsNoiseDropdownOpen(!isNoiseDropdownOpen)}
+                                className="flex items-center gap-2 px-3.5 py-2 bg-alura-surface1 hover:bg-alura-surface3 border border-alura-border hover:border-alura-accent/50 rounded-xl text-xs font-semibold text-white transition-all cursor-pointer shadow-sm group"
+                              >
+                                <span className="w-2 h-2 rounded-full bg-alura-accent animate-pulse" />
+                                <span>{activeProfile.shortLabel}</span>
+                                <span className={`text-[10px] px-1.5 py-0.5 rounded font-bold ${activeProfile.badgeColor}`}>
+                                  {activeProfile.badge}
+                                </span>
+                                <ChevronDown className={`w-3.5 h-3.5 text-alura-textMuted group-hover:text-white transition-transform duration-200 ${isNoiseDropdownOpen ? 'rotate-180 text-alura-accent' : ''}`} />
+                              </button>
+
+                              {/* Menu Flutuante Customizado */}
+                              {isNoiseDropdownOpen && (
+                                <div className="absolute right-0 top-[calc(100%+8px)] z-50 w-72 sm:w-80 bg-alura-surface1/95 border border-alura-border rounded-2xl shadow-[0_16px_48px_rgba(0,0,0,0.85)] p-2 backdrop-blur-2xl animate-in fade-in slide-in-from-top-2 duration-150">
+                                  <div className="text-[10px] font-bold text-alura-textSecondary uppercase tracking-wider px-2.5 py-1.5 border-b border-alura-border/40 mb-1 flex items-center justify-between">
+                                    <span>Perfis Alura Crisp DSP</span>
+                                    <span className="text-[9px] text-alura-accent font-mono font-normal">Zero Nuvem</span>
+                                  </div>
+                                  <div className="space-y-1">
+                                    {ALURA_NOISE_PROFILES.map((p) => {
+                                      const isSelected = noiseSuppression === p.id || (p.legacyId && noiseSuppression === p.legacyId)
+                                      return (
+                                        <button
+                                          key={p.id}
+                                          type="button"
+                                          onClick={() => {
+                                            setNoiseSuppression(p.id as any)
+                                            try { localStorage.setItem("alura_noise_suppression", p.id) } catch {}
+                                            showToast({ type: "success", title: "Alura Crisp Engine", message: `Perfil ajustado para ${p.label}.` })
+                                            setIsNoiseDropdownOpen(false)
+                                            if (isTestingMic) {
+                                              stopMicTest()
+                                              setTimeout(startMicTest, 120)
+                                            }
+                                          }}
+                                          className={`w-full flex items-start justify-between gap-2 p-2.5 rounded-xl text-left transition-all cursor-pointer ${
+                                            isSelected
+                                              ? 'bg-alura-selected border border-alura-accent/40 shadow-sm'
+                                              : 'hover:bg-alura-surface2 border border-transparent'
+                                          }`}
+                                        >
+                                          <div className="flex-1 min-w-0">
+                                            <div className="flex items-center gap-1.5 mb-0.5">
+                                              <span className={`text-xs font-bold ${isSelected ? 'text-alura-accent' : 'text-white'}`}>
+                                                {p.label}
+                                              </span>
+                                              <span className={`text-[9px] px-1.5 py-0.2 rounded font-semibold ${p.badgeColor}`}>
+                                                {p.badge}
+                                              </span>
+                                            </div>
+                                            <span className="text-[11px] text-alura-textMuted line-clamp-2 leading-relaxed">
+                                              {p.desc}
+                                            </span>
+                                          </div>
+                                          {isSelected && (
+                                            <Check className="w-4 h-4 text-alura-accent shrink-0 mt-0.5" />
+                                          )}
+                                        </button>
+                                      )
+                                    })}
+                                  </div>
+                                </div>
+                              )}
+                            </>
+                          )
+                        })()}
+                      </div>
                     </div>
                   </div>
 
@@ -5107,32 +5389,40 @@ export function Settings() {
               {/* ========================================================= */}
               {activeAudioSubTab === "avancado" && (
                 <div className="space-y-6">
-                  {/* Supressão de Ruído Alura AI */}
+                  {/* Supressão de Ruído Alura Crisp Engine */}
                   <div className="rounded-2xl border border-alura-border bg-alura-surface1/90 p-6 space-y-4">
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <Sparkles className="w-4 h-4 text-alura-accent" />
-                        <h3 className="text-[15px] font-bold text-white">Supressão de Ruído Alura AI (Krisp)</h3>
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <Sparkles className="w-4 h-4 text-alura-accent" />
+                          <h3 className="text-[15px] font-bold text-white">Alura Crisp Engine — Cancelamento Nativo</h3>
+                        </div>
+                        <p className="text-[12px] text-alura-textMuted mt-1 max-w-3xl">
+                          Processamento acústico multi-banda local com VAD de micro-ataque (5ms), corte de zumbidos 60Hz/50Hz e limitador Soft-Knee. 100% offline, sem envio de voz para a nuvem e zero latência perceptível.
+                        </p>
                       </div>
-                      <p className="text-[12px] text-alura-textMuted mt-1">
-                        Utiliza redes neurais profundas para isolar sua voz e extinguir ruídos de fundo como cliques de teclado, ventiladores e barulho externo.
-                      </p>
+                      <span className="self-start sm:self-auto text-[10px] font-bold px-2.5 py-1 rounded-full bg-alura-accent/15 text-alura-accent border border-alura-accent/30 tracking-wider uppercase">
+                        Zero Nuvem • 48kHz
+                      </span>
                     </div>
 
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-3 pt-2">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 pt-2">
                       {[
-                        { id: "krisp", title: "IA Krisp", desc: "Rede neural ativa. Máxima clareza vocal sem nenhum ruído.", tag: "Recomendado" },
-                        { id: "standard", title: "Padrão", desc: "Filtro acústico tradicional passa-alta para frequências graves.", tag: "Básico" },
-                        { id: "off", title: "Desativado", desc: "Sinal de áudio cru direto do hardware sem nenhum filtro.", tag: "Raw" },
+                        { id: "alura_crisp_smart", legacyId: "krisp", title: "Alura Crisp Inteligente", desc: "Equilíbrio cirúrgico contra teclado mecânico, cliques, ventilador e ar-condicionado sem alterar a cor da voz.", tag: "Recomendado" },
+                        { id: "alura_crisp_studio", legacyId: null, title: "Alura Crisp Estúdio", desc: "Preserva resposta de frequência completa até 18kHz com atenuação suave do piso de ruído. Ideal para podcast e música.", tag: "Fidelidade Alta" },
+                        { id: "alura_crisp_aggressive", legacyId: "cleanvoice", title: "Alura Crisp Agressivo", desc: "Isolamento vocal reforçado com piso a -80dB para ambientes muito barulhentos, tráfego externo e lan houses.", tag: "Extremo" },
+                        { id: "standard", legacyId: null, title: "Padrão WebRTC", desc: "Filtro acústico nativo do navegador com passa-alta suave de 80Hz.", tag: "Básico" },
+                        { id: "passthrough", legacyId: null, title: "Pass-Through Externo", desc: "Ideal para Krisp Desktop, RTX Voice, Elgato ou Sonar. Desativa AGC do navegador para som direto.", tag: "Hardware" },
+                        { id: "off", legacyId: null, title: "Desativado", desc: "Sinal analógico bruto do hardware sem nenhum filtro ou atenuação.", tag: "Raw" },
                       ].map((item) => {
-                        const isSelected = noiseSuppression === item.id
+                        const isSelected = noiseSuppression === item.id || (item.legacyId && noiseSuppression === item.legacyId)
                         return (
                           <div
                             key={item.id}
                             onClick={() => {
                               setNoiseSuppression(item.id as any)
                               try { localStorage.setItem("alura_noise_suppression", item.id) } catch {}
-                              showToast({ type: "success", title: "Supressão de Ruído", message: `Modo ajustado para ${item.title}.` })
+                              showToast({ type: "success", title: "Alura Crisp Engine", message: `Perfil ajustado para ${item.title}.` })
                             }}
                             className={`p-3.5 rounded-xl border transition-all cursor-pointer ${isSelected
                                 ? "border-alura-accent/60 bg-alura-selected shadow-[0_0_15px_rgba(57,255,136,0.12)] text-white"
@@ -5245,6 +5535,152 @@ export function Settings() {
           {/* ABA 6: CONEXÕES */}
           {activeTab === "Conexões" && (
             <div className="max-w-4xl space-y-6">
+
+              {/* CARD PRINCIPAL SPOTIFY CONNECT (Identidade alura-configuracoes.html) */}
+              <div className="rounded-2xl border border-alura-border bg-alura-surface1/95 p-6 space-y-5 shadow-sm relative overflow-hidden">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                  <div className="flex items-center gap-3.5">
+                    <div className="w-12 h-12 rounded-2xl bg-[#1DB954]/15 border border-[#1DB954]/30 flex items-center justify-center text-[#1DB954] shadow-[0_0_20px_rgba(29,185,84,0.25)]">
+                      <SpotifyIcon className="w-7 h-7" />
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <h2 className="text-[17px] font-bold text-white tracking-tight">Spotify Connect</h2>
+                        {spotifyConnected ? (
+                          <span className="px-2 py-0.5 rounded-full bg-[#1DB954]/15 border border-[#1DB954]/30 text-[11px] font-bold text-[#39FF88] flex items-center gap-1.5">
+                            <span className="w-1.5 h-1.5 rounded-full bg-[#39FF88] animate-pulse" /> Conectado
+                          </span>
+                        ) : (
+                          <span className="px-2 py-0.5 rounded-full bg-white/5 border border-white/10 text-[11px] font-medium text-alura-textMuted">
+                            Não Conectado
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-[12px] text-alura-textMuted mt-0.5">
+                        Mostre o que você está ouvindo no seu perfil em tempo real para seus amigos.
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-2 shrink-0">
+                    {spotifyConnected ? (
+                      <>
+                        <Button
+                          onClick={handleRefreshSpotify}
+                          disabled={isRefreshingSpotify}
+                          variant="outline"
+                          className="h-9 px-3.5 text-xs border-alura-border text-alura-textSecondary hover:text-white bg-alura-surface2 flex items-center gap-1.5 cursor-pointer"
+                        >
+                          <RefreshCw className={`w-3.5 h-3.5 ${isRefreshingSpotify ? 'animate-spin' : ''}`} />
+                          <span>{isRefreshingSpotify ? "Atualizando..." : "Sincronizar"}</span>
+                        </Button>
+                        <Button
+                          onClick={handleDisconnectSpotify}
+                          variant="outline"
+                          className="h-9 px-3 text-xs border-alura-danger/30 text-alura-danger hover:bg-alura-danger/10 cursor-pointer"
+                        >
+                          Desconectar
+                        </Button>
+                      </>
+                    ) : (
+                      <Button
+                        onClick={handleConnectSpotify}
+                        className="h-9 px-4 text-xs font-bold bg-[#1DB954] hover:bg-[#1ed760] text-black shadow-[0_0_15px_rgba(29,185,84,0.35)] flex items-center gap-2 cursor-pointer transition-all hover:scale-102"
+                      >
+                        <SpotifyIcon className="w-4 h-4" color="#000" />
+                        <span>Conectar Spotify</span>
+                      </Button>
+                    )}
+                  </div>
+                </div>
+
+                {/* Se Conectado: Visibilidade para Amigos & Atividade Musical */}
+                {spotifyConnected && (
+                  <div className="space-y-4 pt-4 border-t border-alura-border/40">
+                    <div className="flex items-center justify-between p-4 rounded-xl bg-alura-surface2/60 border border-alura-border/60">
+                      <div className="space-y-0.5 pr-4">
+                        <span className="text-[13px] font-bold text-white block">
+                          Exibir música em reprodução no meu perfil e aos amigos
+                        </span>
+                        <p className="text-[12px] text-alura-textMuted leading-relaxed">
+                          Seus amigos e membros dos servidores verão a faixa, artista e capa em tempo real quando você estiver ouvindo no Spotify.
+                        </p>
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={() => handleToggleSpotifyShow(!showSpotifyActivity)}
+                        className={`w-12 h-6 flex items-center rounded-full p-1 transition-colors cursor-pointer shrink-0 ${showSpotifyActivity ? 'bg-[#1DB954]' : 'bg-alura-surface3'}`}
+                      >
+                        <div
+                          className={`bg-white w-4 h-4 rounded-full shadow-md transform transition-transform ${showSpotifyActivity ? 'translate-x-6' : 'translate-x-0'}`}
+                        />
+                      </button>
+                    </div>
+
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between px-1">
+                        <span className="text-[12px] font-bold text-white flex items-center gap-2">
+                          <Music className="w-4 h-4 text-[#39FF88]" />
+                          Faixa em Reprodução
+                        </span>
+                        {spotifyActivity?.isPlaying && (
+                          <span className="text-[11px] text-[#39FF88] font-mono flex items-center gap-1">
+                            <span className="w-2 h-2 rounded-full bg-[#39FF88] animate-ping" /> Ao vivo
+                          </span>
+                        )}
+                      </div>
+
+                      {spotifyActivity?.isPlaying ? (
+                        <SpotifyActivityCard track={spotifyActivity} userName={displayName} />
+                      ) : (
+                        <div className="p-6 rounded-xl border border-alura-border/60 bg-alura-surface2/30 text-center space-y-2">
+                          <p className="text-xs text-alura-textMuted">
+                            Nenhuma faixa tocando no momento. Abra seu aplicativo do Spotify e dê play para transmitir.
+                          </p>
+                          <Button
+                            onClick={handleRefreshSpotify}
+                            disabled={isRefreshingSpotify}
+                            variant="outline"
+                            className="h-7 px-3 text-[11px] border-alura-border text-alura-textSecondary hover:text-white bg-alura-surface2 cursor-pointer"
+                          >
+                            <RefreshCw className={`w-3 h-3 mr-1 ${isRefreshingSpotify ? 'animate-spin' : ''}`} />
+                            Verificar agora
+                          </Button>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {/* Se Não Conectado: Helper de Redirect URI */}
+                {!spotifyConnected && (
+                  <div className="p-4 rounded-xl border border-alura-border/60 bg-alura-surface2/40 text-xs space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="font-semibold text-white flex items-center gap-1.5 text-xs">
+                        <LinkIcon className="w-3.5 h-3.5 text-alura-accent" /> Redirect URI oficial:
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          navigator.clipboard.writeText(SpotifyService.getRedirectUri())
+                          showToast({
+                            type: "success",
+                            title: "Copiado!",
+                            message: "Redirect URI copiada para a área de transferência."
+                          })
+                        }}
+                        className="px-2.5 py-1 rounded-lg bg-alura-surface1 border border-alura-border hover:border-alura-accent text-[11px] text-alura-accent font-bold transition-colors cursor-pointer"
+                      >
+                        Copiar URI
+                      </button>
+                    </div>
+                    <code className="block p-2 rounded-lg bg-black/50 font-mono text-[11px] text-[#39ff88] truncate select-all">
+                      {SpotifyService.getRedirectUri()}
+                    </code>
+                  </div>
+                )}
+              </div>
 
               <div className="rounded-2xl border border-alura-border bg-alura-surface1/90 p-6 space-y-6">
                 
@@ -5626,26 +6062,26 @@ export function Settings() {
 
       </div>
 
-      {/* Floating Action Bar quando houver alterações não salvas (Estilo Discord Premium) */}
+      {/* Floating Action Bar quando houver alterações não salvas (alura-configuracoes.html) */}
       {hasChanges && (
-        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 flex items-center justify-between gap-6 px-6 py-3.5 rounded-2xl bg-[#001B0B]/95 border border-alura-accent/50 shadow-[0_10px_40px_rgba(0,0,0,0.8),0_0_25px_rgba(57,255,136,0.25)] backdrop-blur-md animate-in slide-in-from-bottom-6 duration-300 max-w-[90vw] w-[640px]">
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 flex items-center justify-between gap-6 px-6 py-3.5 rounded-2xl bg-alura-surface1/95 border border-alura-borderStrong shadow-[0_12px_45px_rgba(0,0,0,0.85)] backdrop-blur-md animate-in slide-in-from-bottom-6 duration-300 max-w-[90vw] w-[640px]">
           <div className="flex items-center gap-3 min-w-0">
             <div className="w-2.5 h-2.5 rounded-full bg-alura-accent animate-pulse shrink-0"></div>
-            <span className="text-sm font-semibold text-white truncate">Cuidado — você tem alterações não salvas!</span>
+            <span className="text-sm font-semibold text-alura-textPrimary truncate">Você tem alterações não salvas.</span>
           </div>
           <div className="flex items-center gap-3 shrink-0">
             <button
               onClick={handleResetChanges}
-              className="text-xs font-semibold text-alura-textSecondary hover:text-white px-3 py-1.5 rounded-lg hover:bg-white/5 transition-colors cursor-pointer"
+              className="text-xs font-semibold text-alura-textSecondary hover:text-alura-textPrimary px-3 py-1.5 rounded-lg hover:bg-alura-surface2 transition-colors cursor-pointer"
             >
-              Redefinir
+              Descartar
             </button>
             <Button
               onClick={handleSaveAccount}
               disabled={isSaving}
-              className="bg-alura-accent text-[#0B0D0F] font-bold text-xs h-9 px-5 rounded-xl hover:bg-alura-accentHover shadow-[0_0_15px_rgba(57,255,136,0.3)] transition-all cursor-pointer"
+              className="bg-alura-accent text-alura-background hover:brightness-110 font-bold text-xs h-9 px-5 rounded-xl shadow-lg shadow-alura-accent/25 transition-all cursor-pointer"
             >
-              {isSaving ? "Salvando..." : "Salvar Alterações"}
+              {isSaving ? "Salvando..." : "Salvar alterações"}
             </Button>
           </div>
         </div>

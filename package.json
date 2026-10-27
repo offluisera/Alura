@@ -8,12 +8,15 @@
   ],
   "scripts": {
     "build": "turbo run build",
+    "build:installer": "npm --prefix apps/web run build && npm --prefix apps/desktop run build",
+    "build:portable": "npm --prefix apps/web run build && npm --prefix apps/desktop run build:portable",
     "dev": "turbo run dev",
     "lint": "turbo run lint",
     "format": "prettier --write \"**/*.{ts,tsx,md,json}\""
   },
   "devDependencies": {
     "eslint": "^8.50.0",
+    "pg": "^8.23.0",
     "prettier": "^3.0.0",
     "turbo": "latest"
   },

@@ -1,0 +1,45 @@
+# Arquivo de orquestração Docker Compose para o VPS (/opt/alura/docker-compose.yml)
+version: '3.8'
+
+services:
+  phoenix:
+    build:
+      context: ./phoenix
+      dockerfile: Dockerfile
+    image: alura-phoenix:latest
+    container_name: alura_phoenix
+    restart: unless-stopped
+    env_file:
+      - ./phoenix/.env
+    environment:
+      - MIX_ENV=prod
+      - PORT=4000
+      - PHX_SERVER=true
+    ports:
+      # Exposto APENAS para o localhost (127.0.0.1) para proxy reverso pelo Nginx do aaPanel
+      # NUNCA expor na internet (0.0.0.0:4000)
+      - "127.0.0.1:4000:4000"
+    networks:
+      - alura-net
+    deploy:
+      resources:
+        limits:
+          cpus: '1.5'
+          memory: 1024M
+        reservations:
+          memory: 256M
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://127.0.0.1:4000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+networks:
+  alura-net:
+    external: true

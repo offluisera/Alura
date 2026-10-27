@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'react'
-import { Monitor, AppWindow, Volume2, X } from 'lucide-react'
+import React, { useState, useEffect } from 'react'
+import { X, Monitor, Layers, Volume2, VolumeX, Sparkles, Check } from 'lucide-react'
 
 export interface ScreenSource {
   id: string
@@ -9,255 +9,398 @@ export interface ScreenSource {
   display_id?: string
 }
 
-interface ScreenShareModalProps {
+export interface ScreenShareModalProps {
   isOpen: boolean
   onClose: () => void
-  onSelectSource: (sourceId: string, shareAudio: boolean) => void
+  onStartShare?: (stream: MediaStream) => void
+  onSelectSource?: (sourceId: string, withAudio: boolean) => void
 }
 
-export function ScreenShareModal({ isOpen, onClose, onSelectSource }: ScreenShareModalProps) {
-  const [activeTab, setActiveTab] = useState<'screen' | 'window'>('screen')
+export function ScreenShareModal({ isOpen, onClose, onStartShare, onSelectSource }: ScreenShareModalProps) {
   const [sources, setSources] = useState<ScreenSource[]>([])
   const [selectedSourceId, setSelectedSourceId] = useState<string | null>(null)
-  const [shareAudio, setShareAudio] = useState(true)
-  const [loading, setLoading] = useState(false)
+  const [activeTab, setActiveTab] = useState<'screens' | 'windows'>('screens')
+  const [includeAudio, setIncludeAudio] = useState(true)
+  const [resolution, setResolution] = useState<'720p' | '1080p'>('1080p')
+  const [fps, setFps] = useState<30 | 60>(60)
+  const [isLoading, setIsLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
-  const getElectronIPC = () => {
-    if (typeof window === 'undefined') return null
-    return (window as any).electronIPC || (window as any).require?.('electron')?.ipcRenderer || null
-  }
+  const isElectron = Boolean(
+    typeof window !== 'undefined' &&
+      ((window as any).electronIPC?.isElectron?.() ||
+        (window as any).electronAPI ||
+        (window as any).isElectron ||
+        (window as any).ipcRenderer)
+  )
 
+  // Carrega fontes de telas e janelas
   useEffect(() => {
     if (!isOpen) return
 
-    const fetchSources = async () => {
-      setLoading(true)
-      const ipc = getElectronIPC()
-      if (ipc && ipc.invoke) {
-        try {
-          const res = await ipc.invoke('get-screen-sources')
-          if (Array.isArray(res)) {
-            setSources(res)
-            // Seleciona a primeira fonte por padrão
-            const firstScreen = res.find((s) => s.id.startsWith('screen:')) || res[0]
-            if (firstScreen) setSelectedSourceId(firstScreen.id)
+    const loadSources = async () => {
+      setIsLoading(true)
+      setError(null)
+      try {
+        if (isElectron) {
+          const ipc = (window as any).electronIPC || (window as any).electronAPI
+          if (ipc?.invoke) {
+            const res = await ipc.invoke('get-screen-sources')
+            if (Array.isArray(res) && res.length > 0) {
+              setSources(res)
+              setSelectedSourceId(res[0].id)
+            }
           }
-        } catch (err) {
-          console.error('[ScreenShareModal] Erro ao buscar fontes:', err)
         }
+      } catch (err: any) {
+        console.error('Erro ao obter fontes de tela:', err)
+        setError('Não foi possível listar as janelas e telas.')
+      } finally {
+        setIsLoading(false)
       }
-      setLoading(false)
     }
 
-    fetchSources()
-  }, [isOpen])
+    loadSources()
+  }, [isOpen, isElectron])
 
   if (!isOpen) return null
 
-  const screens = sources.filter((s) => s.id.startsWith('screen:'))
-  const windows = sources.filter((s) => !s.id.startsWith('screen:'))
-  const currentList = activeTab === 'screen' ? screens : windows
+  // Filtra por Telas ou Janelas
+  const screens = sources.filter((s) => s.id.startsWith('screen:') || s.name.toLowerCase().includes('screen') || s.name.toLowerCase().includes('tela'))
+  const windows = sources.filter((s) => !screens.some((sc) => sc.id === s.id))
+  const displayedSources = activeTab === 'screens' ? (screens.length > 0 ? screens : sources) : windows
 
-  const handleConfirm = () => {
-    if (!selectedSourceId) return
-    onSelectSource(selectedSourceId, shareAudio)
-    onClose()
+  const handleConfirmShare = async () => {
+    setError(null)
+    setIsLoading(true)
+
+    try {
+      if (isElectron && selectedSourceId && onSelectSource) {
+        onSelectSource(selectedSourceId, includeAudio)
+        onClose()
+        return
+      }
+
+      let stream: MediaStream
+
+      if (isElectron && selectedSourceId) {
+        // Captura direta pelo ID da janela/tela selecionada no Electron
+        const maxW = resolution === '1080p' ? 1920 : 1280
+        const maxH = resolution === '1080p' ? 1080 : 720
+
+        let captured: MediaStream | null = null
+
+        if (includeAudio) {
+          try {
+            captured = await (navigator.mediaDevices as any).getUserMedia({
+              audio: {
+                mandatory: {
+                  chromeMediaSource: 'desktop',
+                },
+              },
+              video: {
+                mandatory: {
+                  chromeMediaSource: 'desktop',
+                  chromeMediaSourceId: selectedSourceId,
+                  maxWidth: maxW,
+                  maxHeight: maxH,
+                  maxFrameRate: fps,
+                },
+              },
+            })
+          } catch (audioErr) {
+            console.warn('[ScreenShareModal] Falha na captura com áudio desktop, tentando apenas vídeo:', audioErr)
+          }
+        }
+
+        if (!captured) {
+          captured = await (navigator.mediaDevices as any).getUserMedia({
+            audio: false,
+            video: {
+              mandatory: {
+                chromeMediaSource: 'desktop',
+                chromeMediaSourceId: selectedSourceId,
+                maxWidth: maxW,
+                maxHeight: maxH,
+                maxFrameRate: fps,
+              },
+            },
+          })
+        }
+
+        stream = captured
+      } else {
+        // Navegador web comum
+        stream = await navigator.mediaDevices.getDisplayMedia({
+          video: {
+            width: resolution === '1080p' ? 1920 : 1280,
+            height: resolution === '1080p' ? 1080 : 720,
+            frameRate: fps,
+          },
+          audio: includeAudio,
+        })
+      }
+
+      if (onStartShare) {
+        onStartShare(stream)
+      }
+      onClose()
+    } catch (err: any) {
+      if (err.name !== 'NotAllowedError') {
+        console.error('Erro ao iniciar compartilhamento:', err)
+        setError(err.message || 'Falha ao iniciar compartilhamento de tela.')
+      }
+    } finally {
+      setIsLoading(false)
+    }
   }
 
   return (
-    <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/75 backdrop-blur-md p-4 animate-in fade-in duration-200">
-      <div className="w-full max-w-2xl bg-alura-surface1 border border-alura-border rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[85vh] animate-in zoom-in-95 duration-200">
-        
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-in fade-in duration-150">
+      <div className="w-full max-w-2xl rounded-3xl bg-alura-surface1 border border-alura-borderStrong shadow-2xl p-6 space-y-5 animate-in zoom-in-95 duration-200">
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-alura-border bg-alura-surface2/50 shrink-0">
-          <div>
-            <h2 className="text-base font-bold text-alura-textPrimary flex items-center gap-2">
-              <Monitor className="w-5 h-5 text-alura-accent" />
-              Compartilhar sua tela
-            </h2>
-            <p className="text-xs text-alura-textSecondary mt-0.5">
-              Escolha uma tela inteira ou janela de aplicativo para transmitir
-            </p>
+        <div className="flex items-center justify-between border-b border-alura-border pb-4">
+          <div className="flex items-center gap-2.5">
+            <div className="w-9 h-9 rounded-xl bg-alura-accent/15 border border-alura-accent/30 flex items-center justify-center text-alura-accent">
+              <Monitor size={18} />
+            </div>
+            <div>
+              <h3 className="text-base font-black text-alura-textPrimary tracking-tight">
+                Compartilhar Tela
+              </h3>
+              <p className="text-xs text-alura-textMuted">
+                Selecione o que deseja transmitir e configure a qualidade.
+              </p>
+            </div>
           </div>
           <button
+            type="button"
             onClick={onClose}
-            className="p-1.5 rounded-lg text-alura-textMuted hover:text-white hover:bg-alura-surface3 transition-colors"
+            className="w-8 h-8 rounded-full bg-alura-surface2 hover:bg-alura-surface3 text-alura-textMuted hover:text-alura-textPrimary flex items-center justify-center transition-colors cursor-pointer"
           >
-            <X size={18} />
+            <X size={16} />
           </button>
         </div>
 
-        {/* Abas */}
-        <div className="flex border-b border-alura-border px-6 pt-2 gap-4 bg-alura-surface1 shrink-0">
-          <button
-            onClick={() => {
-              setActiveTab('screen')
-              const first = screens[0]
-              if (first) setSelectedSourceId(first.id)
-            }}
-            className={`flex items-center gap-2 pb-3 px-1 text-sm font-semibold border-b-2 transition-all cursor-pointer ${
-              activeTab === 'screen'
-                ? 'border-alura-accent text-white'
-                : 'border-transparent text-alura-textMuted hover:text-alura-textPrimary'
-            }`}
-          >
-            <Monitor size={16} />
-            <span>Telas ({screens.length})</span>
-          </button>
+        {error && (
+          <div className="p-3 rounded-xl bg-red-500/15 border border-red-500/30 text-xs font-semibold text-red-400">
+            {error}
+          </div>
+        )}
 
-          <button
-            onClick={() => {
-              setActiveTab('window')
-              const first = windows[0]
-              if (first) setSelectedSourceId(first.id)
-            }}
-            className={`flex items-center gap-2 pb-3 px-1 text-sm font-semibold border-b-2 transition-all cursor-pointer ${
-              activeTab === 'window'
-                ? 'border-alura-accent text-white'
-                : 'border-transparent text-alura-textMuted hover:text-alura-textPrimary'
-            }`}
-          >
-            <AppWindow size={16} />
-            <span>Janelas ({windows.length})</span>
-          </button>
-        </div>
+        {/* Abas Telas vs Janelas */}
+        {isElectron && (
+          <div className="flex items-center gap-2 bg-alura-surface2 p-1 rounded-2xl border border-alura-border/60">
+            <button
+              type="button"
+              onClick={() => setActiveTab('screens')}
+              className={`flex-1 py-2 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
+                activeTab === 'screens'
+                  ? 'bg-alura-selected text-alura-accent shadow-sm'
+                  : 'text-alura-textMuted hover:text-alura-textPrimary'
+              }`}
+            >
+              <Monitor size={14} />
+              <span>Telas Inteiras ({screens.length})</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setActiveTab('windows')}
+              className={`flex-1 py-2 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
+                activeTab === 'windows'
+                  ? 'bg-alura-selected text-alura-accent shadow-sm'
+                  : 'text-alura-textMuted hover:text-alura-textPrimary'
+              }`}
+            >
+              <Layers size={14} />
+              <span>Janelas de Aplicativos ({windows.length})</span>
+            </button>
+          </div>
+        )}
 
-        {/* Grid de Fontes ou Opções Web */}
-        <div className="flex-1 overflow-y-auto p-6 custom-scrollbar">
-          {loading ? (
-            <div className="py-16 text-center text-xs text-alura-textMuted flex flex-col items-center gap-3">
-              <div className="w-8 h-8 border-3 border-alura-accent border-t-transparent rounded-full animate-spin" />
-              <span>Carregando janelas e telas disponíveis...</span>
-            </div>
-          ) : currentList.length === 0 ? (
-            <div className="flex flex-col gap-4 py-4">
-              <p className="text-xs text-alura-textSecondary">
-                Selecione o modo de compartilhamento abaixo para iniciar a transmissão:
-              </p>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div
-                  onClick={() => setSelectedSourceId('web:screen')}
-                  className={`p-4 rounded-xl border cursor-pointer transition-all flex flex-col gap-2.5 bg-alura-surface2 ${
-                    selectedSourceId === 'web:screen' || !selectedSourceId
-                      ? 'border-alura-accent ring-2 ring-alura-accent/30 shadow-lg'
-                      : 'border-alura-border hover:border-alura-border/80'
-                  }`}
-                >
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-xl bg-alura-accent/15 text-alura-accent flex items-center justify-center">
-                      <Monitor size={20} />
-                    </div>
-                    <div>
-                      <h4 className="text-sm font-bold text-alura-textPrimary">Tela Inteira</h4>
-                      <p className="text-[11px] text-alura-textMuted">Jogos, desktop e telas cheias</p>
-                    </div>
-                  </div>
-                </div>
-
-                <div
-                  onClick={() => setSelectedSourceId('web:window')}
-                  className={`p-4 rounded-xl border cursor-pointer transition-all flex flex-col gap-2.5 bg-alura-surface2 ${
-                    selectedSourceId === 'web:window'
-                      ? 'border-alura-accent ring-2 ring-alura-accent/30 shadow-lg'
-                      : 'border-alura-border hover:border-alura-border/80'
-                  }`}
-                >
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-xl bg-alura-accent/15 text-alura-accent flex items-center justify-center">
-                      <AppWindow size={20} />
-                    </div>
-                    <div>
-                      <h4 className="text-sm font-bold text-alura-textPrimary">Janela de Aplicativo</h4>
-                      <p className="text-[11px] text-alura-textMuted">Programas e navegadores</p>
-                    </div>
-                  </div>
-                </div>
+        {/* Grade de Telas/Janelas com Thumbnails */}
+        {isElectron && (
+          <div className="max-h-60 overflow-y-auto custom-scrollbar p-1">
+            {isLoading ? (
+              <div className="flex flex-col items-center justify-center py-12 text-alura-textMuted space-y-2">
+                <div className="w-6 h-6 border-2 border-alura-accent border-t-transparent rounded-full animate-spin" />
+                <span className="text-xs">Carregando janelas abertas...</span>
               </div>
-            </div>
-          ) : (
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
-              {currentList.map((source) => {
-                const isSelected = selectedSourceId === source.id
-                return (
-                  <div
-                    key={source.id}
-                    onClick={() => setSelectedSourceId(source.id)}
-                    className={`group relative rounded-xl border overflow-hidden cursor-pointer transition-all flex flex-col bg-alura-surface2 ${
-                      isSelected
-                        ? 'border-alura-accent ring-2 ring-alura-accent/30 shadow-lg'
-                        : 'border-alura-border hover:border-alura-border/80 hover:bg-alura-surface3/40'
-                    }`}
-                  >
-                    {/* Thumbnail Preview */}
-                    <div className="aspect-video w-full bg-black/40 overflow-hidden flex items-center justify-center relative">
-                      {source.thumbnail ? (
-                        <img
-                          src={source.thumbnail}
-                          alt={source.name}
-                          className="w-full h-full object-contain group-hover:scale-105 transition-transform duration-200"
-                        />
-                      ) : (
-                        <Monitor size={32} className="text-alura-textDisabled" />
-                      )}
+            ) : displayedSources.length === 0 ? (
+              <div className="text-center py-12 text-xs text-alura-textMuted">
+                Nenhuma janela encontrada nesta categoria.
+              </div>
+            ) : (
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                {displayedSources.map((source) => {
+                  const isSelected = selectedSourceId === source.id
 
-                      {isSelected && (
-                        <div className="absolute top-2 right-2 w-5 h-5 rounded-full bg-alura-accent text-white flex items-center justify-center text-xs font-bold shadow-md">
-                          ✓
-                        </div>
-                      )}
+                  return (
+                    <div
+                      key={source.id}
+                      onClick={() => setSelectedSourceId(source.id)}
+                      className={`relative group rounded-2xl overflow-hidden border-2 transition-all cursor-pointer bg-alura-surface2 flex flex-col ${
+                        isSelected
+                          ? 'border-alura-accent ring-2 ring-alura-accent/30 shadow-lg'
+                          : 'border-alura-border hover:border-alura-borderStrong hover:bg-alura-surface3'
+                      }`}
+                    >
+                      {/* Thumbnail com aspect ratio 16:9 */}
+                      <div className="aspect-video w-full bg-black/40 overflow-hidden relative flex items-center justify-center">
+                        {source.thumbnail ? (
+                          <img
+                            src={source.thumbnail}
+                            alt={source.name}
+                            className="w-full h-full object-cover"
+                          />
+                        ) : (
+                          <Monitor size={24} className="text-alura-textMuted" />
+                        )}
+
+                        {isSelected && (
+                          <div className="absolute top-2 right-2 w-5 h-5 rounded-full bg-alura-accent text-alura-surface0 flex items-center justify-center shadow-md">
+                            <Check size={12} strokeWidth={3} />
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Nome da Janela / App */}
+                      <div className="p-2 flex items-center gap-1.5 min-w-0">
+                        {source.appIcon && (
+                          <img src={source.appIcon} alt="" className="w-3.5 h-3.5 shrink-0" />
+                        )}
+                        <span className="text-[11px] font-bold text-alura-textPrimary truncate">
+                          {source.name}
+                        </span>
+                      </div>
                     </div>
+                  )
+                })}
+              </div>
+            )}
+          </div>
+        )}
 
-                    {/* Nome / Título */}
-                    <div className="p-2.5 flex items-center gap-2 min-w-0">
-                      {source.appIcon && (
-                        <img src={source.appIcon} alt="" className="w-4 h-4 shrink-0 rounded" />
-                      )}
-                      <span className="text-xs font-semibold text-alura-textPrimary truncate" title={source.name}>
-                        {source.name}
-                      </span>
-                    </div>
-                  </div>
-                )
-              })}
+        {!isElectron && (
+          <div className="p-4 rounded-2xl bg-alura-surface2/70 border border-alura-border flex items-center gap-3.5">
+            <div className="w-10 h-10 rounded-xl bg-alura-accent/15 border border-alura-accent/30 flex items-center justify-center text-alura-accent shrink-0">
+              <Monitor size={20} />
             </div>
-          )}
-        </div>
+            <div className="text-xs space-y-0.5">
+              <p className="font-extrabold text-alura-textPrimary">
+                Transmissão via Navegador Web
+              </p>
+              <p className="text-alura-textMuted leading-relaxed">
+                Ao clicar em <span className="text-alura-accent font-semibold">Iniciar Transmissão</span>, seu navegador exibirá a janela nativa para você escolher entre <strong>Telas Inteiras</strong>, <strong>Janelas de Aplicativos</strong> ou <strong>Guias</strong>.
+              </p>
+            </div>
+          </div>
+        )}
 
-        {/* Footer com Checkbox de Áudio e Botões */}
-        <div className="px-6 py-4 border-t border-alura-border bg-alura-surface2/60 flex items-center justify-between shrink-0">
-          <label className="flex items-center gap-2.5 cursor-pointer select-none">
-            <input
-              type="checkbox"
-              checked={shareAudio}
-              onChange={(e) => setShareAudio(e.target.checked)}
-              className="w-4 h-4 rounded border-alura-border text-alura-accent focus:ring-alura-accent/30 bg-alura-surface3 cursor-pointer"
-            />
-            <div className="flex items-center gap-1.5">
-              <Volume2 size={15} className="text-alura-accent" />
-              <span className="text-xs font-semibold text-alura-textPrimary">
-                Compartilhar áudio do sistema (jogos/vídeos)
+        {/* Configurações Adicionais: Áudio do Sistema, Qualidade e FPS */}
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2 border-t border-alura-border">
+          {/* Toggle de Áudio */}
+          <div
+            onClick={() => setIncludeAudio((v) => !v)}
+            className={`p-3 rounded-2xl border transition-all cursor-pointer flex items-center justify-between ${
+              includeAudio
+                ? 'bg-alura-selected border-alura-accent/60 text-white'
+                : 'bg-alura-surface2/60 border-alura-border text-alura-textMuted'
+            }`}
+          >
+            <div className="flex items-center gap-2">
+              {includeAudio ? (
+                <Volume2 size={16} className="text-alura-accent" />
+              ) : (
+                <VolumeX size={16} className="text-alura-textMuted" />
+              )}
+              <span className="text-xs font-bold">
+                {includeAudio ? 'Com áudio' : 'Sem áudio'}
               </span>
             </div>
-          </label>
+            <input
+              type="checkbox"
+              checked={includeAudio}
+              onChange={() => {}}
+              className="w-4 h-4 accent-emerald-500 rounded pointer-events-none"
+            />
+          </div>
 
-          <div className="flex items-center gap-3">
+          {/* Resolução */}
+          <div className="flex items-center gap-1 bg-alura-surface2 p-1 rounded-2xl border border-alura-border">
             <button
-              onClick={onClose}
-              className="px-4 py-2 text-xs font-semibold text-alura-textSecondary hover:text-white rounded-xl hover:bg-white/5 transition-colors cursor-pointer"
+              type="button"
+              onClick={() => setResolution('720p')}
+              className={`flex-1 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                resolution === '720p'
+                  ? 'bg-alura-selected text-alura-accent shadow-sm'
+                  : 'text-alura-textMuted'
+              }`}
             >
-              Cancelar
+              720p
             </button>
             <button
-              onClick={handleConfirm}
-              disabled={!selectedSourceId && currentList.length > 0}
-              className="px-5 py-2 text-xs font-bold bg-alura-accent text-white rounded-xl hover:bg-alura-accentHover disabled:opacity-50 disabled:cursor-not-allowed shadow-[0_0_15px_rgba(var(--alura-accent-rgb),0.35)] transition-all cursor-pointer"
+              type="button"
+              onClick={() => setResolution('1080p')}
+              className={`flex-1 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                resolution === '1080p'
+                  ? 'bg-alura-selected text-alura-accent shadow-sm'
+                  : 'text-alura-textMuted'
+              }`}
             >
-              Compartilhar Tela
+              1080p HD
+            </button>
+          </div>
+
+          {/* Taxa de Quadros (FPS) */}
+          <div className="flex items-center gap-1 bg-alura-surface2 p-1 rounded-2xl border border-alura-border">
+            <button
+              type="button"
+              onClick={() => setFps(30)}
+              className={`flex-1 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                fps === 30
+                  ? 'bg-alura-selected text-alura-accent shadow-sm'
+                  : 'text-alura-textMuted'
+              }`}
+            >
+              30 FPS
+            </button>
+            <button
+              type="button"
+              onClick={() => setFps(60)}
+              className={`flex-1 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                fps === 60
+                  ? 'bg-alura-selected text-alura-accent shadow-sm'
+                  : 'text-alura-textMuted'
+              }`}
+            >
+              60 FPS
             </button>
           </div>
         </div>
 
+        {/* Rodapé de Ações */}
+        <div className="flex items-center justify-end gap-2 pt-3 border-t border-alura-border">
+          <button
+            type="button"
+            onClick={onClose}
+            className="px-4 py-2 rounded-xl bg-alura-surface2 hover:bg-alura-surface3 text-xs font-bold text-alura-textSecondary transition-colors cursor-pointer"
+          >
+            Cancelar
+          </button>
+          <button
+            type="button"
+            onClick={handleConfirmShare}
+            disabled={isLoading || (isElectron && !selectedSourceId)}
+            className="px-5 py-2 rounded-xl bg-alura-accent hover:bg-alura-accentHover disabled:opacity-50 text-alura-surface0 text-xs font-black transition-all shadow-md cursor-pointer flex items-center gap-1.5"
+          >
+            <Sparkles size={14} />
+            <span>{isLoading ? 'Conectando...' : 'Iniciar Transmissão'}</span>
+          </button>
+        </div>
       </div>
     </div>
   )
 }
+
+export default ScreenShareModal

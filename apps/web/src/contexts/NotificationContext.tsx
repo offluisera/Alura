@@ -29,6 +29,8 @@ interface NotificationContextType {
   showConfirmModal: (options: ConfirmModalOptions) => void
   unreadDMCount: number
   refreshUnreadDMs: () => Promise<void>
+  pendingRequestsCount: number
+  refreshPendingRequests: () => Promise<void>
 }
 
 const NotificationContext = createContext<NotificationContextType | undefined>(undefined)
@@ -58,6 +60,7 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
   })
 
   const [unreadDMCount, setUnreadDMCount] = useState(0)
+  const [pendingRequestsCount, setPendingRequestsCount] = useState(0)
   const clickHandlers = useRef<Record<string, () => void>>({})
 
   const refreshUnreadDMs = useCallback(async () => {
@@ -75,8 +78,37 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
     }
   }, [])
 
+  const refreshPendingRequests = useCallback(async () => {
+    const { data: { session } } = await supabase.auth.getSession()
+    if (!session) return
+
+    const { count, error } = await supabase
+      .from('friendships')
+      .select('*', { count: 'exact', head: true })
+      .eq('user_id_2', session.user.id)
+      .eq('status', 'pending')
+
+    if (!error && count !== null) {
+      setPendingRequestsCount(count)
+    }
+  }, [])
+
   useEffect(() => {
     refreshUnreadDMs()
+    refreshPendingRequests()
+
+    const channel = supabase.channel('friendship_badge_listener')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'friendships' }, () => {
+        refreshPendingRequests()
+      })
+      .subscribe()
+
+    return () => {
+      supabase.removeChannel(channel)
+    }
+  }, [refreshUnreadDMs, refreshPendingRequests])
+
+  useEffect(() => {
     
     if (typeof Notification !== 'undefined' && Notification.permission === 'default') {
       Notification.requestPermission()
@@ -204,7 +236,9 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
       showToast, 
       showConfirmModal, 
       unreadDMCount, 
-      refreshUnreadDMs 
+      refreshUnreadDMs,
+      pendingRequestsCount,
+      refreshPendingRequests
     }}>
       {children}
       

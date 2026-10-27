@@ -17,6 +17,7 @@ if config_env() == :prod do
 
   config :alura, Alura.Repo,
     ssl: true,
+    ssl_opts: [verify: :verify_none],
     url: database_url,
     pool_size: String.to_integer(System.get_env("POOL_SIZE") || "10"),
     socket_options: maybe_ipv6
@@ -38,4 +39,8 @@ if config_env() == :prod do
       port: port
     ],
     secret_key_base: secret_key_base
+
+  # Supabase JWT Secret para validação de tokens nos canais WebSockets
+  jwt_secret = System.get_env("SUPABASE_JWT_SECRET") || secret_key_base
+  config :joken, default_signer: jwt_secret
 end

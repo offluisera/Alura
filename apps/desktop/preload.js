@@ -13,13 +13,20 @@ contextBridge.exposeInMainWorld('electronIPC', {
       'call-action',
       'close-call-window',
       'show-custom-notification',
+      'start-update-download',
+      'cancel-update-download',
     ]
     if (allowed.includes(channel)) ipcRenderer.send(channel, data)
   },
 
   // ── Chamadas bidirecionais (com resposta) ──────────────────────────────────
   invoke: async (channel, ...args) => {
-    const allowed = ['get-screen-sources']
+    const allowed = [
+      'get-screen-sources',
+      'set-selected-screen-source',
+      'get-app-version',
+      'install-update',
+    ]
     if (allowed.includes(channel)) {
       return await ipcRenderer.invoke(channel, ...args)
     }
@@ -31,6 +38,9 @@ contextBridge.exposeInMainWorld('electronIPC', {
       'incoming-call-data',
       'call-action-from-native',
       'execute-notification-click',
+      'update-download-progress',
+      'update-downloaded',
+      'update-error',
     ]
     if (!allowed.includes(channel)) return () => {}
     const wrapped = (_event, ...args) => callback(...args)

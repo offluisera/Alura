@@ -1,0 +1,111 @@
+# Plano de Implementação — Correções de GIFs, Spotify, Transmissão e Áudio na Chamada
+
+Correções pontuais para os problemas reportados nos Anexos 1, 2 e 3 e nas funcionalidades de Spotify e Transmissão de Tela.
+
+---
+
+## 1. Problemas Identificados e Diagnósticos
+
+### Anexo 1: Menu de GIFs Não Responsivo
+- **Causa raiz**: Havia wrappers `absolute bottom-full mb-3` duplicados — um em [`ServerWorkspace.tsx`](file:///c:/xampp/htdocs/AluraProjects/Alura/apps/web/src/pages/app/ServerWorkspace.tsx) e outro internamente em [`GifPickerPopover.tsx`](file:///c:/xampp/htdocs/AluraProjects/Alura/apps/web/src/components/chat/GifPickerPopover.tsx). Isso empurrava o popover para fora da área visível e o cortava na margem.
+- **Solução**: Unificar o posicionamento em [`GifPickerPopover.tsx`](file:///c:/xampp/htdocs/AluraProjects/Alura/apps/web/src/components/chat/GifPickerPopover.tsx) com `max-w-[calc(100vw-32px)]`, `w-[320px] sm:w-[380px]`, `max-h-[min(480px,70vh)]` e ancoragem segura `right-0`.
+
+### Anexo 2: GIF Não Funciona no Chat
+- **Causa raiz**: Em [`ServerWorkspace.tsx`](file:///c:/xampp/htdocs/AluraProjects/Alura/apps/web/src/pages/app/ServerWorkspace.tsx#L3565), o callback recebia a URL como string mas tentava acessar `gif.url` (`handleSendGif(gif.url)`), enviando `undefined` como conteúdo da mensagem. Além disso, o regex de renderização em `renderMessageContent` precisa cobrir URLs de GIF variadas (Tenor, Giphy, Klipy e URLs diretas).
+- **Solução**: Corrigir para `onSelectGif={(url) => { handleSendGif(url); setShowGifPicker(false); }}` e aprimorar a renderização em `renderMessageContent`.
+
+### Spotify: Não Puxa Música e Falha na Sincronização
+- **Causa raiz**:
+  1. `SpotifyService.getStoredToken()` retornava `null` se `Date.now() >= expiresAt`, sem tentar renovar com o `refresh_token`, fazendo o app achar que a conta estava desconectada após 1 hora.
+  2. `fetchCurrentlyPlaying(token)` não renovava token ao receber erro HTTP 401 da API do Spotify.
+  3. O endpoint `/v1/me/player/currently-playing` retorna HTTP 204 quando a reprodução está em pausa ou se o player estiver em modo idle.
+- **Solução**:
+  - Criar `getValidToken(): Promise<string | null>` com auto-renovação de token via `refreshAccessToken()`.
+  - Em `fetchCurrentlyPlaying`: retentar automaticamente com token renovado em caso de 401.
+  - Adicionar fallback para `/v1/me/player` e `/v1/me/player/recently-played?limit=1` quando retornar 204, mantendo a última faixa e exibindo estado claro no perfil.
+  - Melhorar os toasts de sincronização no [`Settings.tsx`](file:///c:/xampp/htdocs/AluraProjects/Alura/apps/web/src/pages/app/Settings.tsx) com orientação sobre configurações de privacidade do Spotify.
+
+### Transmissão de Tela: Tela Preta ao Encerrar e Persistência de Espectadores
+- **Causa raiz**:
+  1. Ao receber `screen_share_stop`, as tracks de vídeo remotas não eram removidas de `remoteStreamRef.current`, mantendo a tela preta ativa para quem assistia.
+  2. Não havia evento disparado para tirar quem estava assistindo (`watchingStream === 'remote'`) quando o streamer parava.
+- **Solução**:
+  - Em [`useWebRTCCall.ts`](file:///c:/xampp/htdocs/AluraProjects/Alura/apps/web/src/lib/hooks/useWebRTCCall.ts), no `screen_share_stop` e no `track.onended`, limpar as tracks de vídeo remotas e atualizar o `remoteStream`.
+  - Em [`CallOverlay.tsx`](file:///c:/xampp/htdocs/AluraProjects/Alura/apps/web/src/components/call/CallOverlay.tsx), quando `isRemoteSharing` for falso, redefinir `setWatchingStream(null)` imediatamente e sair de tela cheia.
+
+### Sistema de Espectador da Transmissão (Mostrar Quem Está Assistindo)
+- **Solução**:
+  - Adicionar tipos de sinal `'stream_viewer_join' | 'stream_viewer_leave'` em [`CallSignalingService.ts`](file:///c:/xampp/htdocs/AluraProjects/Alura/apps/web/src/lib/services/CallSignalingService.ts) e [`PhoenixCallSignalingService.ts`](file:///c:/xampp/htdocs/AluraProjects/Alura/apps/web/src/lib/services/PhoenixCallSignalingService.ts).
+  - Em [`useWebRTCCall.ts`](file:///c:/xampp/htdocs/AluraProjects/Alura/apps/web/src/lib/hooks/useWebRTCCall.ts), rastrear lista `streamViewers` de espectadores conectados.
+  - No [`CallOverlay.tsx`](file:///c:/xampp/htdocs/AluraProjects/Alura/apps/web/src/components/call/CallOverlay.tsx), exibir badge sobre a transmissão: `👁️ [N] assistindo` com avatares sobrepostos e tooltip com os nomes.
+
+### Anexo 3: Áudio Para ao Minimizar a Chamada e Vídeo Fica Preto ao Voltar
+- **Causa raiz**:
+  1. O componente [`CallOverlay.tsx`](file:///c:/xampp/htdocs/AluraProjects/Alura/apps/web/src/components/call/CallOverlay.tsx) desmontava o bloco principal inteiro ao entrar em `isMinimized = true`, destruindo o elemento `<audio>` e recriando outro cujo `useEffect` não executava porque `isMinimized` não estava nas dependências.
+  2. Ao voltar (`isMinimized = false`), o elemento `<video>` recriado ficava sem `srcObject` pelo mesmo motivo, resultando em tela preta.
+- **Solução**:
+  - Mover os elementos `<audio>` para uma camada de mídia permanente (`hidden`) que **nunca é desmontada**, garantindo áudio 100% ininterrupto durante toda a chamada.
+  - Incluir `isMinimized` nas dependências dos efeitos de sincronização de vídeo para que o feed seja reatribuído instantaneamente ao maximizar.
+
+---
+
+## 2. Mudanças Propostas
+
+### UI e Componentes de Chat
+#### [MODIFY] [`GifPickerPopover.tsx`](file:///c:/xampp/htdocs/AluraProjects/Alura/apps/web/src/components/chat/GifPickerPopover.tsx)
+- Corrigir classes responsivas do container principal (`max-w-[calc(100vw-32px)]`, `w-[320px] sm:w-[380px]`, `max-h-[min(480px,75vh)]`).
+- Garantir comportamento fluído nas abas e no grid de categorias.
+
+#### [MODIFY] [`ServerWorkspace.tsx`](file:///c:/xampp/htdocs/AluraProjects/Alura/apps/web/src/pages/app/ServerWorkspace.tsx)
+- Remover o container duplicado ao redor de `GifPickerPopover` e corrigir `onSelectGif`:
+  ```tsx
+  onSelectGif={(url) => {
+    handleSendGif(url)
+    setShowGifPicker(false)
+  }}
+  ```
+- Aprimorar o renderizador `renderMessageContent` para suportar GIFs de múltiplas origens de forma robusta.
+
+---
+
+### Integração do Spotify
+#### [MODIFY] [`SpotifyService.ts`](file:///c:/xampp/htdocs/AluraProjects/Alura/apps/web/src/lib/services/SpotifyService.ts)
+- Adicionar `getValidToken(): Promise<string | null>` com renovação automática por `refreshAccessToken()`.
+- Atualizar `fetchCurrentlyPlaying` para tratar HTTP 401 (reautenticar e retentar) e HTTP 204 (fallback para `/v1/me/player` e `/v1/me/player/recently-played?limit=1`).
+
+#### [MODIFY] [`Settings.tsx`](file:///c:/xampp/htdocs/AluraProjects/Alura/apps/web/src/pages/app/Settings.tsx)
+- Em `handleRefreshSpotify`, utilizar `await SpotifyService.getValidToken()`.
+- Adicionar orientações úteis no toast quando não houver reprodução ativa reportada pelo Spotify.
+
+---
+
+### WebRTC, Transmissão de Tela e Áudio
+#### [MODIFY] [`CallSignalingService.ts`](file:///c:/xampp/htdocs/AluraProjects/Alura/apps/web/src/lib/services/CallSignalingService.ts) e [`PhoenixCallSignalingService.ts`](file:///c:/xampp/htdocs/AluraProjects/Alura/apps/web/src/lib/services/PhoenixCallSignalingService.ts)
+- Adicionar os sinais `'stream_viewer_join'` e `'stream_viewer_leave'` aos tipos de sinalização.
+
+#### [MODIFY] [`useWebRTCCall.ts`](file:///c:/xampp/htdocs/AluraProjects/Alura/apps/web/src/lib/hooks/useWebRTCCall.ts)
+- Gerenciar limpeza completa de tracks de vídeo no `screen_share_stop` e `track.onended`.
+- Rastrear e expor `streamViewers` e método de sinalização customizada.
+
+#### [MODIFY] [`CallOverlay.tsx`](file:///c:/xampp/htdocs/AluraProjects/Alura/apps/web/src/components/call/CallOverlay.tsx)
+- **Áudio Permanente**: elementos `<audio>` movidos para fora do bloco condicional de minimização, eliminando interrupções sonoras.
+- **Vídeo Contínuo**: sincronização reativa ao maximizar (`!isMinimized`), eliminando a tela preta.
+- **Saída Automática de Transmissão**: retorno aos avatares quando a transmissão remota for encerrada.
+- **Badge de Espectadores**: exibição de `👁️ [N] assistindo` com avatares e nomes sobre a transmissão.
+
+---
+
+## 3. Plano de Verificação
+
+### Compilação e Build
+- Executar `npm run build` no `apps/web` para garantir ausência de erros TypeScript e sintaxe.
+
+### Testes Funcionais
+1. **Menu de GIF**: Abrir o popover em diferentes tamanhos de tela e verificar se permanece responsivo e dentro dos limites da janela.
+2. **Envio de GIF**: Selecionar um GIF no menu e verificar se aparece imediatamente no chat do canal como GIF animado.
+3. **Spotify**: Clicar em "Sincronizar" em Configurações e testar atualização de faixa e token.
+4. **Áudio Minimizado**: Iniciar chamada, clicar em "Navegar na Alura" / minimizar e verificar se o áudio continua tocando nos fones de ouvido.
+5. **Transmissão**:
+   - Iniciar transmissão e verificar badge de espectadores.
+   - Minimizar e maximizar para verificar que a transmissão não fica preta.
+   - Encerrar a transmissão na origem e verificar que o espectador é removido da transmissão e volta para a tela de avatares sem tela preta.

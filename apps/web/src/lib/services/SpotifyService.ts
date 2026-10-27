@@ -97,18 +97,45 @@ export const SpotifyService = {
    * Obtém a URI de redirecionamento padronizada para o ambiente atual
    */
   getRedirectUri(): string {
+    // 1. Prioridade se houver variável explícita
+    if (typeof import.meta !== 'undefined' && import.meta.env?.VITE_SPOTIFY_REDIRECT_URI) {
+      return import.meta.env.VITE_SPOTIFY_REDIRECT_URI.replace(/\/$/, '') + '/'
+    }
+
     if (typeof window !== 'undefined') {
       const isElectron = window.navigator?.userAgent?.includes('Electron') || Boolean((window as any).process?.versions?.electron)
+      
+      // No Electron Desktop ou quando origin for file://, redireciona para a URL de produção que o main.js intercepta
       if (isElectron || window.location.origin.startsWith('file:') || window.location.origin === 'null' || !window.location.origin) {
-        return 'http://127.0.0.1:5173/'
+        return 'https://alura.net.br/'
       }
+
       const origin = window.location.origin.replace(/\/$/, '')
-      if (origin.includes('localhost') || origin.includes('127.0.0.1')) {
-        return 'http://127.0.0.1:5173/'
+      
+      // Se for domínio oficial de produção
+      if (origin.includes('alura.net.br')) {
+        return 'https://alura.net.br/'
       }
+
+      // Se for ambiente local (localhost / 127.0.0.1), usa o próprio host e porta ativos
       return `${origin}/`
     }
-    return 'http://127.0.0.1:5173/'
+
+    return 'https://alura.net.br/'
+  },
+
+  /**
+   * Retorna lista de URIs recomendadas para registrar no Spotify Developer Dashboard
+   */
+  getSuggestedRedirectUris(): string[] {
+    return [
+      'https://alura.net.br/',
+      'https://alura.net.br',
+      'http://localhost:3000/',
+      'http://127.0.0.1:3000/',
+      'http://localhost:5173/',
+      'http://127.0.0.1:5173/'
+    ]
   },
 
   /**
@@ -274,17 +301,45 @@ export const SpotifyService = {
   },
 
   /**
-   * Obtém o token armazenado se ainda estiver válido
+   * Obtém token válido ou renova automaticamente com o refresh_token se expirado
+   */
+  async getValidToken(): Promise<string | null> {
+    if (typeof window === 'undefined') return null
+    const token = localStorage.getItem('alura_spotify_token')
+    const expiresAt = Number(localStorage.getItem('alura_spotify_token_expires') || 0)
+    const refreshToken = localStorage.getItem('alura_spotify_refresh_token')
+
+    // Se o token ainda tem mais de 60 segundos de validade, retorna ele
+    if (token && Date.now() < expiresAt - 60000) {
+      return token
+    }
+
+    // Se tiver refresh token, renova o access token silenciosamente
+    if (refreshToken) {
+      console.log('[SpotifyService] Renovando access token do Spotify via refresh_token...')
+      const newToken = await this.refreshAccessToken()
+      if (newToken) return newToken
+    }
+
+    return token || null
+  },
+
+  /**
+   * Obtém o token armazenado se ainda estiver válido (síncrono)
    */
   getStoredToken(): string | null {
     if (typeof window === 'undefined') return null
-    const token = localStorage.getItem("alura_spotify_token")
-    const expiresAt = Number(localStorage.getItem("alura_spotify_token_expires") || 0)
+    const token = localStorage.getItem('alura_spotify_token')
+    const expiresAt = Number(localStorage.getItem('alura_spotify_token_expires') || 0)
 
     if (token && Date.now() < expiresAt) {
       return token
     }
-    return null
+    // Se o token expirou mas há refresh_token, dispara renovação silenciosa em background
+    if (localStorage.getItem('alura_spotify_refresh_token')) {
+      this.refreshAccessToken().catch(() => {})
+    }
+    return token || null
   },
 
   /**
@@ -293,7 +348,10 @@ export const SpotifyService = {
   isConnected(profile?: any): boolean {
     if (profile?.spotify_connected) return true
     if (typeof window !== 'undefined') {
-      return localStorage.getItem("alura_spotify_connected") === "true"
+      return (
+        localStorage.getItem('alura_spotify_connected') === 'true' ||
+        Boolean(localStorage.getItem('alura_spotify_token'))
+      )
     }
     return false
   },
@@ -301,53 +359,107 @@ export const SpotifyService = {
   /**
    * Busca a música atualmente em reprodução na API do Spotify
    */
-  async fetchCurrentlyPlaying(token: string): Promise<SpotifyTrack | null> {
+  async fetchCurrentlyPlaying(token?: string): Promise<SpotifyTrack | null> {
     try {
       let activeToken = token
-
-      // Se o token estiver expirado, tenta renovar antes da requisição
-      if (typeof window !== 'undefined') {
-        const expiresAt = Number(localStorage.getItem("alura_spotify_token_expires") || 0)
-        if (Date.now() >= expiresAt) {
-          const renewed = await this.refreshAccessToken()
-          if (renewed) activeToken = renewed
-        }
+      if (!activeToken) {
+        activeToken = (await this.getValidToken()) || undefined
       }
-
-      const response = await fetch(`https://api.spotify.com/v1/me/player/currently-playing?_t=${Date.now()}`, {
-        cache: 'no-store',
-        headers: {
-          Authorization: `Bearer ${activeToken}`,
-          'Cache-Control': 'no-cache, no-store, must-revalidate',
-          'Pragma': 'no-cache',
-          'Expires': '0'
-        }
-      })
-
-      if (response.status === 204 || response.status > 400) {
+      if (!activeToken) {
+        console.warn('[SpotifyService] Nenhum token válido disponível para busca de reprodução.')
         return null
       }
 
-      const data = await response.json()
-      if (!data || !data.item) return null
+      // Função auxiliar para tentar requisição e tratar 401
+      const doFetch = async (url: string, currentToken: string) => {
+        let res = await fetch(`${url}${url.includes('?') ? '&' : '?'}_t=${Date.now()}`, {
+          cache: 'no-store',
+          headers: {
+            Authorization: `Bearer ${currentToken}`,
+            'Cache-Control': 'no-cache, no-store, must-revalidate',
+            Pragma: 'no-cache',
+            Expires: '0',
+          },
+        })
+
+        // Se der 401 Unauthorized, tenta renovar e retenta imediatamente
+        if (res.status === 401) {
+          console.warn('[SpotifyService] HTTP 401 Unauthorized detectado. Renovando token...')
+          const renewedToken = await this.refreshAccessToken()
+          if (renewedToken) {
+            activeToken = renewedToken
+            res = await fetch(`${url}${url.includes('?') ? '&' : '?'}_t=${Date.now()}`, {
+              cache: 'no-store',
+              headers: {
+                Authorization: `Bearer ${renewedToken}`,
+                'Cache-Control': 'no-cache, no-store, must-revalidate',
+              },
+            })
+          }
+        }
+        return res
+      }
+
+      // 1. Tenta endpoint de reprodução em tempo real
+      let response = await doFetch('https://api.spotify.com/v1/me/player/currently-playing', activeToken)
+
+      // 2. Se retornar 204 (No Content) ou erro, tenta o endpoint geral do player (pega estado mesmo pausado)
+      if (response.status === 204 || response.status > 400) {
+        response = await doFetch('https://api.spotify.com/v1/me/player', activeToken)
+      }
+
+      let data: any = null
+      if (response.status === 200) {
+        try {
+          data = await response.json()
+        } catch {}
+      }
+
+      // 3. Se ainda assim não retornou faixa ativa (ex: player em idle ou pausado),
+      // busca a última faixa tocada para não esvaziar o perfil do usuário
+      if (!data || !data.item) {
+        const recentResponse = await doFetch('https://api.spotify.com/v1/me/player/recently-played?limit=1', activeToken)
+        if (recentResponse.status === 200) {
+          try {
+            const recentData = await recentResponse.json()
+            const recentItem = recentData?.items?.[0]?.track
+            if (recentItem) {
+              const artists = (recentItem.artists || []).map((a: any) => a.name).join(', ')
+              const albumArt = recentItem.album?.images?.[0]?.url || recentItem.album?.images?.[1]?.url || ''
+              return {
+                isPlaying: false,
+                trackName: recentItem.name || 'Música recente',
+                artistName: artists || 'Artista desconhecido',
+                albumName: recentItem.album?.name || '',
+                albumArt,
+                progressMs: 0,
+                durationMs: Number(recentItem.duration_ms) || 0,
+                trackUrl: recentItem.external_urls?.spotify || '',
+                updatedAt: new Date().toISOString(),
+              }
+            }
+          } catch {}
+        }
+        return null
+      }
 
       const item = data.item
-      const artists = (item.artists || []).map((a: any) => a.name).join(", ")
-      const albumArt = item.album?.images?.[0]?.url || item.album?.images?.[1]?.url || ""
+      const artists = (item.artists || []).map((a: any) => a.name).join(', ')
+      const albumArt = item.album?.images?.[0]?.url || item.album?.images?.[1]?.url || ''
 
       return {
         isPlaying: Boolean(data.is_playing),
-        trackName: item.name || "Música desconhecida",
-        artistName: artists || "Artista desconhecido",
-        albumName: item.album?.name || "",
+        trackName: item.name || 'Música desconhecida',
+        artistName: artists || 'Artista desconhecido',
+        albumName: item.album?.name || '',
         albumArt,
         progressMs: Number(data.progress_ms) || 0,
         durationMs: Number(item.duration_ms) || 0,
-        trackUrl: item.external_urls?.spotify || "",
-        updatedAt: new Date().toISOString()
+        trackUrl: item.external_urls?.spotify || '',
+        updatedAt: new Date().toISOString(),
       }
     } catch (err) {
-      console.warn("SpotifyService: erro ao buscar reprodução", err)
+      console.warn('[SpotifyService] Erro ao buscar reprodução:', err)
       return null
     }
   },

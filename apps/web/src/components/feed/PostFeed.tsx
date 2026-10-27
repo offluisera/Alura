@@ -9,11 +9,17 @@ import { useNotification } from "../../contexts/NotificationContext"
 import { compressImageToWebp, downloadImageAsPng } from "../../lib/utils/imageOptimizer"
 import { UserProfileHoverCard } from "../shared/UserProfileHoverCard"
 
-interface PostFeedProps {
+export interface PostFeedProps {
   user: any
+  profile?: any
+  filterUserId?: string
+  hideComposer?: boolean
+  isProfileFeed?: boolean
+  onPostCreated?: () => void
+  emptyMessage?: string
 }
 
-interface FeedPost {
+export interface FeedPost {
   id: string
   user_id: string
   content: string
@@ -25,6 +31,7 @@ interface FeedPost {
   profiles: {
     display_name: string
     username: string
+    avatar_url?: string
   }
 }
 
@@ -41,10 +48,19 @@ interface Comment {
   profiles: {
     display_name: string
     username: string
+    avatar_url?: string
   }
 }
 
-export function PostFeed({ user }: PostFeedProps) {
+export function PostFeed({ 
+  user, 
+  profile: propProfile, 
+  filterUserId, 
+  hideComposer = false, 
+  isProfileFeed = false, 
+  onPostCreated,
+  emptyMessage 
+}: PostFeedProps) {
   const navigate = useNavigate()
   const { showToast } = useNotification()
   const displayName = user?.user_metadata?.full_name || "Usuário"
@@ -72,14 +88,29 @@ export function PostFeed({ user }: PostFeedProps) {
   const [friendCount, setFriendCount] = useState(0)
   const [requestsCount, setRequestsCount] = useState(0)
   const [notificationsCount, setNotificationsCount] = useState(0)
+  const [messagesCount, setMessagesCount] = useState(0)
+
+  const [currentUserProfile, setCurrentUserProfile] = useState<any>(propProfile || null)
 
   useEffect(() => {
-    fetchMetadata()
-  }, [user])
+    if (propProfile) {
+      setCurrentUserProfile(propProfile)
+    } else if (user?.id) {
+      supabase.from('profiles').select('*').eq('id', user.id).single().then(({ data }) => {
+        if (data) setCurrentUserProfile(data)
+      })
+    }
+  }, [user?.id, propProfile])
+
+  useEffect(() => {
+    if (!isProfileFeed) {
+      fetchMetadata()
+    }
+  }, [user, isProfileFeed])
 
   useEffect(() => {
     fetchPosts()
-  }, [user, page])
+  }, [user, page, filterUserId])
 
   async function fetchMetadata() {
     if (!user) return
@@ -92,6 +123,9 @@ export function PostFeed({ user }: PostFeedProps) {
 
       const { count: notifs } = await supabase.from('notifications').select('*', { count: 'exact', head: true }).eq('user_id', user.id).eq('is_read', false)
       if (notifs !== null) setNotificationsCount(notifs)
+
+      const { count: unreadMsgs } = await supabase.from('direct_messages').select('*', { count: 'exact', head: true }).neq('user_id', user.id).eq('is_read', false)
+      if (unreadMsgs !== null) setMessagesCount(unreadMsgs)
     } catch (error) { console.error("Erro ao puxar métricas", error) }
   }
 
@@ -103,14 +137,20 @@ export function PostFeed({ user }: PostFeedProps) {
       const from = (page - 1) * POSTS_PER_PAGE
       const to = from + POSTS_PER_PAGE - 1
 
-      const { data, error, count } = await supabase
+      let query = supabase
         .from('feed_posts')
         .select(`
           id, user_id, content, created_at, updated_at, attachments,
-          profiles!user_id(display_name, username),
+          profiles!user_id(display_name, username, avatar_url),
           feed_likes(count),
           feed_comments(count)
         `, { count: 'exact' })
+
+      if (filterUserId) {
+        query = query.eq('user_id', filterUserId)
+      }
+
+      const { data, error, count } = await query
         .order('created_at', { ascending: false })
         .range(from, to)
       
@@ -207,188 +247,272 @@ export function PostFeed({ user }: PostFeedProps) {
       setShowEmoji(false)
       setPage(1) // Volta para a primeira página ao publicar
       fetchPosts()
+      onPostCreated?.()
     } catch (err: any) { 
       console.error("Erro ao publicar post", err)
       setErrorMsg(err.message || "Erro desconhecido ao publicar")
     } finally { setIsPublishing(false) }
   }
 
-  return (
-    <main className="flex-1 h-full p-4 md:p-6 overflow-y-auto custom-scrollbar relative">
-      <div className="relative w-full min-h-full rounded-[20px] border border-alura-border bg-alura-background shadow-2xl pb-10">
-        <div 
-          className="absolute top-0 left-0 w-full h-[450px] pointer-events-none opacity-90 rounded-t-[20px] transition-all duration-500 overflow-hidden" 
-          style={{ background: 'var(--theme-hero-bg)' }}
-        >
-          <div className="absolute inset-0 bg-gradient-to-b from-transparent via-alura-background/60 to-alura-background" />
+  const composerBox = !hideComposer && (
+    <div className="p-4 rounded-xl border border-alura-border bg-alura-surface1 space-y-3 relative z-20 transition-colors">
+      {errorMsg && (
+        <div className="p-3 bg-red-500/10 border border-red-500/50 rounded-lg text-red-400 text-[13px] font-medium">
+          ⚠️ Erro: {errorMsg}
+        </div>
+      )}
+      
+      <div className="flex gap-3">
+        <div className="w-10 h-10 rounded-full bg-[#243029] text-alura-accent font-bold text-[13px] flex items-center justify-center shrink-0 overflow-hidden">
+          {currentUserProfile?.avatar_url || user?.user_metadata?.avatar_url ? (
+            <img src={currentUserProfile?.avatar_url || user?.user_metadata?.avatar_url} alt={displayName} className="w-full h-full object-cover" />
+          ) : (
+            <span>{initials}</span>
+          )}
         </div>
 
-        <div className="relative z-10 px-6 py-8 md:px-10 space-y-8">
-          <div className="pt-2">
-            <h1 className="text-[32px] font-bold tracking-tight text-alura-textPrimary mb-1 drop-shadow-md">
-              Olá, <span className="text-alura-accent drop-shadow-[0_0_8px_var(--alura-accent)]">{firstName}</span>!
-            </h1>
-            <p className="text-[15px] text-alura-textSecondary drop-shadow-sm">Que bom ter você por aqui!</p>
-          </div>
+        <div className="flex-1 min-w-0">
+          <input 
+            type="text" 
+            value={newPostContent}
+            onChange={(e) => setNewPostContent(e.target.value)}
+            onKeyDown={(e) => e.key === 'Enter' && !isPublishing && handlePublish()}
+            placeholder={`No que você está pensando, ${firstName || displayName}?`}
+            className="w-full h-10 px-3.5 rounded-lg bg-alura-background border border-transparent focus:border-alura-accent text-alura-textPrimary placeholder:text-alura-textMuted text-sm outline-none transition-all"
+          />
 
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 w-full">
-            <StatusCard title="Amigos" value={friendCount.toString()} icon={<Users className="text-alura-accent w-5 h-5" />} onClick={() => navigate('/friends')} />
-            <StatusCard title="Solicitações" value={requestsCount.toString()} icon={<UserPlus className="text-alura-textMuted w-5 h-5" />} onClick={() => navigate('/requests')} />
-            <StatusCard title="Mensagens" value="0" icon={<Mail className="text-alura-textMuted w-5 h-5" />} onClick={() => navigate('/messages')} />
-            <StatusCard title="Notificações" value={notificationsCount.toString()} icon={<Bell className="text-alura-textMuted w-5 h-5" />} />
-          </div>
-
-          <div className="p-4 rounded-[14px] border border-alura-border/60 bg-alura-surface1/90 backdrop-blur-md space-y-4 flex flex-col mt-2 relative z-20">
-            {errorMsg && (
-              <div className="p-3 bg-red-500/10 border border-red-500/50 rounded-lg text-red-400 text-[13px] font-medium">
-                ⚠️ Erro do Supabase: {errorMsg}
-              </div>
-            )}
-            
-            <div className="flex items-center space-x-3">
-              <Avatar className="w-10 h-10 border-2 border-alura-accent shadow-[0_0_8px_var(--alura-accent)] bg-alura-surface1">
-                <AvatarFallback className="bg-transparent text-alura-textPrimary">{initials}</AvatarFallback>
-              </Avatar>
-              <input 
-                type="text" 
-                value={newPostContent}
-                onChange={(e) => setNewPostContent(e.target.value)}
-                onKeyDown={(e) => e.key === 'Enter' && handlePublish()}
-                placeholder={`No que você está pensando, ${username}?`}
-                className="flex-1 h-10 px-4 rounded-lg bg-alura-surface2 border border-alura-border text-alura-textPrimary placeholder:text-alura-textDisabled text-[14px] outline-none focus:border-alura-borderStrong focus:shadow-[0_0_10px_rgba(57,255,136,0.1)] transition-all"
-              />
+          {/* Previews de Mídia */}
+          {attachments.length > 0 && (
+            <div className="flex flex-wrap gap-2.5 mt-3">
+              {attachments.map((att, i) => (
+                <div key={i} className="relative group shadow-sm">
+                  <button 
+                    type="button"
+                    onClick={() => removeAttachment(i)} 
+                    className="absolute -top-1.5 -right-1.5 bg-red-500 text-white rounded-full p-1 opacity-90 hover:opacity-100 transition-opacity z-10 hover:bg-red-600 shadow-md cursor-pointer"
+                  >
+                    <X className="w-3 h-3" />
+                  </button>
+                  {att.type === 'image' ? (
+                     <img src={att.previewUrl} className="w-16 h-16 object-cover rounded-lg border border-alura-border" />
+                  ) : att.type === 'video' ? (
+                     <video src={att.previewUrl} className="w-16 h-16 object-cover rounded-lg border border-alura-border" />
+                  ) : (
+                     <div className="w-16 h-16 bg-alura-surface2 rounded-lg border border-alura-border flex items-center justify-center flex-col p-1.5 text-center">
+                       <FileText className="w-5 h-5 text-alura-textSecondary mb-1" />
+                       <span className="text-[9px] text-alura-textMuted font-medium truncate w-full">{att.file.name}</span>
+                     </div>
+                  )}
+                </div>
+              ))}
             </div>
-            <div className="flex items-center justify-between pl-[52px]">
+          )}
+
+          <div className="flex items-center justify-between mt-2.5">
+            <div className="flex items-center gap-1 relative">
+              <input type="file" hidden accept="image/*,video/*" multiple ref={mediaInputRef} onChange={e => handleFileSelect(e, 'media')} />
+              <input type="file" hidden accept=".pdf,.doc,.docx,.zip,.rar" multiple ref={docInputRef} onChange={e => handleFileSelect(e, 'doc')} />
               
-              {/* Previews de Mídia */}
-              {attachments.length > 0 && (
-                <div className="flex flex-wrap gap-3 mb-3 w-full">
-                  {attachments.map((att, i) => (
-                    <div key={i} className="relative group shadow-sm">
-                      <button onClick={() => removeAttachment(i)} className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity z-10 hover:bg-red-600 shadow-md"><X className="w-3 h-3" /></button>
-                      {att.type === 'image' ? (
-                         <img src={att.previewUrl} className="w-16 h-16 object-cover rounded-[10px] border border-alura-border/60" />
-                      ) : att.type === 'video' ? (
-                         <video src={att.previewUrl} className="w-16 h-16 object-cover rounded-[10px] border border-alura-border/60" />
-                      ) : (
-                         <div className="w-16 h-16 bg-alura-surface1 rounded-[10px] border border-alura-border/60 flex items-center justify-center flex-col p-1.5 text-center">
-                           <FileText className="w-5 h-5 text-alura-textSecondary mb-1" />
-                           <span className="text-[9px] text-alura-textMuted font-medium truncate w-full">{att.file.name}</span>
-                         </div>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              )}
-
-              <div className="flex items-center space-x-2 w-full justify-between">
-                <div className="flex items-center space-x-2 relative">
-                  <input type="file" hidden accept="image/*,video/*" multiple ref={mediaInputRef} onChange={e => handleFileSelect(e, 'media')} />
-                  <input type="file" hidden accept=".pdf,.doc,.docx,.zip,.rar" multiple ref={docInputRef} onChange={e => handleFileSelect(e, 'doc')} />
-                  
-                  <button onClick={() => mediaInputRef.current?.click()} className="p-1.5 rounded-[8px] text-alura-textMuted hover:bg-alura-hover hover:text-alura-textPrimary border border-transparent transition-all group" title="Foto ou Vídeo">
-                    <ImageIcon className="w-[18px] h-[18px] group-hover:text-alura-accent transition-colors" />
-                  </button>
-                  <button onClick={() => docInputRef.current?.click()} className="p-1.5 rounded-[8px] text-alura-textMuted hover:bg-alura-hover hover:text-alura-textPrimary border border-transparent transition-all group" title="Anexar Arquivo">
-                    <Paperclip className="w-[18px] h-[18px] group-hover:text-alura-accent transition-colors" />
-                  </button>
-                  
-                  <div className="relative">
-                    <button onClick={() => setShowEmoji(!showEmoji)} className="p-1.5 rounded-[8px] text-alura-textMuted hover:bg-alura-hover hover:text-alura-textPrimary border border-transparent transition-all group" title="Emojis">
-                      <Smile className="w-[18px] h-[18px] group-hover:text-alura-accent transition-colors" />
-                    </button>
-                    {showEmoji && (
-                      <div className="absolute top-10 left-0 z-50 shadow-[0_10px_25px_rgba(0,0,0,0.8)] rounded-xl border border-alura-border overflow-hidden animate-in fade-in zoom-in duration-200">
-                        <EmojiPicker theme={Theme.DARK} onEmojiClick={(e) => setNewPostContent(prev => prev + e.emoji)} />
-                      </div>
-                    )}
-                  </div>
-                </div>
-
+              <button 
+                type="button"
+                onClick={() => mediaInputRef.current?.click()} 
+                className="w-[34px] h-[34px] rounded-lg text-alura-textMuted hover:bg-alura-surface2 hover:text-alura-textPrimary flex items-center justify-center transition-colors cursor-pointer group" 
+                title="Imagem ou Vídeo"
+              >
+                <ImageIcon className="w-[18px] h-[18px] group-hover:text-alura-accent transition-colors" />
+              </button>
+              <button 
+                type="button"
+                onClick={() => docInputRef.current?.click()} 
+                className="w-[34px] h-[34px] rounded-lg text-alura-textMuted hover:bg-alura-surface2 hover:text-alura-textPrimary flex items-center justify-center transition-colors cursor-pointer group" 
+                title="Anexo"
+              >
+                <Paperclip className="w-[18px] h-[18px] group-hover:text-alura-accent transition-colors" />
+              </button>
+              
+              <div className="relative">
                 <button 
-                  onClick={handlePublish}
-                  disabled={isPublishing || (!newPostContent.trim() && attachments.length === 0)}
-                  className="h-9 px-4 rounded-[8px] flex items-center space-x-1.5 bg-alura-accent hover:bg-alura-accentBright disabled:opacity-50 disabled:cursor-not-allowed text-alura-background font-semibold text-[13px] shadow-[0_0_10px_rgba(0,223,160,0.3)] transition-all"
+                  type="button"
+                  onClick={() => setShowEmoji(!showEmoji)} 
+                  className="w-[34px] h-[34px] rounded-lg text-alura-textMuted hover:bg-alura-surface2 hover:text-alura-textPrimary flex items-center justify-center transition-colors cursor-pointer group" 
+                  title="Emoji"
                 >
-                  {isPublishing ? <Loader2 className="w-3.5 h-3.5 animate-spin text-alura-background" /> : <Send className="w-3.5 h-3.5 fill-alura-background" />}
-                  <span>Publicar</span>
+                  <Smile className="w-[18px] h-[18px] group-hover:text-alura-accent transition-colors" />
                 </button>
-              </div>
-            </div>
-          </div>
-
-          <div className="space-y-4">
-            {loadingPosts ? (
-              <div className="flex justify-center p-10"><Loader2 className="w-8 h-8 animate-spin text-alura-accent" /></div>
-            ) : posts.length > 0 ? (
-              <>
-                {posts.map(post => <Post key={post.id} post={post} user={user} refreshFeed={fetchPosts} />)}
-                
-                {/* Paginação */}
-                {totalPages > 1 && (
-                  <div className="flex justify-center items-center space-x-4 pt-6 pb-2">
-                    <button 
-                      onClick={() => setPage(p => Math.max(1, p - 1))}
-                      disabled={page === 1}
-                      className="px-4 py-2 text-[13px] font-medium text-alura-textPrimary border border-alura-border rounded-[8px] bg-alura-surface1 hover:bg-alura-hover disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                    >
-                      Anterior
-                    </button>
-                    <span className="text-[13px] text-alura-textMuted font-medium">Página {page} de {totalPages}</span>
-                    <button 
-                      onClick={() => setPage(p => Math.min(totalPages, p + 1))}
-                      disabled={page === totalPages}
-                      className="px-4 py-2 text-[13px] font-medium text-alura-textPrimary border border-alura-border rounded-[8px] bg-alura-surface1 hover:bg-alura-hover disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                    >
-                      Próxima
-                    </button>
+                {showEmoji && (
+                  <div className="absolute top-10 left-0 z-50 shadow-[0_10px_25px_rgba(0,0,0,0.8)] rounded-xl border border-alura-border overflow-hidden animate-in fade-in zoom-in duration-200">
+                    <EmojiPicker theme={Theme.DARK} onEmojiClick={(e) => setNewPostContent(prev => prev + e.emoji)} />
                   </div>
                 )}
-              </>
-            ) : (
-              <div className="p-8 text-center border border-dashed border-alura-border rounded-[14px]">
-                <p className="text-alura-textSecondary">Nenhuma postagem ainda.</p>
-                <p className="text-alura-textMuted text-[13px] mt-1">Seja o primeiro a publicar algo!</p>
               </div>
-            )}
+            </div>
+
+            <button 
+              type="button"
+              onClick={handlePublish}
+              disabled={isPublishing || (!newPostContent.trim() && attachments.length === 0)}
+              className="h-9 px-4 rounded-lg bg-alura-accent hover:opacity-95 disabled:opacity-50 disabled:cursor-not-allowed text-alura-background font-bold text-sm transition-all cursor-pointer flex items-center gap-1.5 shadow-sm"
+            >
+              {isPublishing ? <Loader2 className="w-3.5 h-3.5 animate-spin text-alura-background" /> : <Send className="w-3.5 h-3.5 fill-alura-background" />}
+              <span>Publicar</span>
+            </button>
           </div>
-
         </div>
       </div>
-    </main>
-  )
-}
-
-function StatusCard({ title, value, icon, onClick }: { title: string, value: string, icon: React.ReactNode, onClick?: () => void }) {
-  return (
-    <div onClick={onClick} className="flex items-center justify-between p-3 rounded-[12px] border border-alura-border/60 bg-alura-surface1/90 backdrop-blur-md hover:bg-alura-surface2 hover:border-alura-borderStrong transition-all cursor-pointer group shadow-sm min-w-0 gap-2">
-      <div className="flex items-center space-x-2.5 min-w-0">
-        <div className="w-9 h-9 flex-shrink-0 rounded-[10px] bg-alura-surface2 flex items-center justify-center border border-alura-border/50 group-hover:border-alura-border transition-colors">{icon}</div>
-        <div className="flex flex-col min-w-0">
-          <span className="text-[11px] font-medium text-alura-textSecondary leading-tight truncate">{title}</span>
-          <span className="text-[17px] font-bold text-alura-textPrimary mt-0.5 group-hover:text-alura-accentBright transition-colors truncate">{value}</span>
-        </div>
-      </div>
-      <ChevronRight className="w-4 h-4 flex-shrink-0 text-alura-textDisabled group-hover:text-alura-textSecondary transition-colors" />
     </div>
   )
-}
 
-function ActionButton({ icon }: { icon: React.ReactNode }) {
+  const postsList = (
+    <div className="space-y-4">
+      {loadingPosts ? (
+        <div className="flex justify-center p-10"><Loader2 className="w-8 h-8 animate-spin text-alura-accent" /></div>
+      ) : posts.length > 0 ? (
+        <>
+          {posts.map(post => (
+            <Post 
+              key={post.id} 
+              post={post} 
+              user={user} 
+              currentUserProfile={currentUserProfile}
+              refreshFeed={fetchPosts} 
+            />
+          ))}
+          
+          {/* Paginação */}
+          {totalPages > 1 && (
+            <div className="flex justify-center items-center space-x-4 pt-4 pb-2">
+              <button 
+                onClick={() => setPage(p => Math.max(1, p - 1))}
+                disabled={page === 1}
+                className="px-4 py-2 text-[13px] font-medium text-alura-textPrimary border border-alura-border rounded-[8px] bg-alura-surface1 hover:bg-alura-surface2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              >
+                Anterior
+              </button>
+              <span className="text-[13px] text-alura-textMuted font-medium">Página {page} de {totalPages}</span>
+              <button 
+                onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+                disabled={page === totalPages}
+                className="px-4 py-2 text-[13px] font-medium text-alura-textPrimary border border-alura-border rounded-[8px] bg-alura-surface1 hover:bg-alura-surface2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              >
+                Próxima
+              </button>
+            </div>
+          )}
+        </>
+      ) : (
+        <div className="p-8 text-center border border-dashed border-alura-border rounded-xl bg-alura-surface1/40">
+          <p className="text-alura-textSecondary font-medium">{emptyMessage || "Nenhuma postagem ainda."}</p>
+          <p className="text-alura-textMuted text-[13px] mt-1">
+            {filterUserId && filterUserId !== user?.id ? "Este usuário ainda não publicou nada no perfil." : "Seja o primeiro a publicar algo!"}
+          </p>
+        </div>
+      )}
+    </div>
+  )
+
+  if (isProfileFeed) {
+    return (
+      <div className="space-y-4 w-full">
+        {composerBox}
+        {postsList}
+      </div>
+    )
+  }
+
   return (
-    <button className="p-1.5 rounded-[8px] text-alura-textMuted hover:bg-alura-hover hover:text-alura-textPrimary hover:border-alura-border border border-transparent transition-all">{icon}</button>
+    <main className="feed flex-1 overflow-y-auto px-6 py-8 pb-16 custom-scrollbar bg-alura-background">
+      <div className="col max-w-[680px] mx-auto space-y-4">
+        
+        {/* Saudação */}
+        <div className="hello">
+          <h1 className="text-[28px] font-bold tracking-tight text-alura-textPrimary mb-1">
+            Olá, <span className="text-alura-accent">{firstName}</span>
+          </h1>
+          <p className="text-sm text-alura-textMuted">Que bom ter você por aqui.</p>
+        </div>
+
+        {/* Stats 4 cols */}
+        <div className="stats grid grid-cols-2 sm:grid-cols-4 gap-2">
+          <div 
+            onClick={() => navigate('/friends')}
+            className="stat on bg-alura-surface1 hover:bg-alura-surface2 border border-alura-border rounded-xl p-3 px-3.5 flex items-center gap-2.5 transition-colors cursor-pointer group"
+          >
+            <Users className="w-5 h-5 text-alura-accent shrink-0" />
+            <div className="min-w-0">
+              <b className="block text-[18px] leading-tight font-bold text-alura-accent truncate">{friendCount}</b>
+              <small className="text-xs text-alura-textMuted block truncate">Amigos</small>
+            </div>
+          </div>
+
+          <div 
+            onClick={() => navigate('/requests')}
+            className="stat bg-alura-surface1 hover:bg-alura-surface2 border border-alura-border rounded-xl p-3 px-3.5 flex items-center gap-2.5 transition-colors cursor-pointer group"
+          >
+            <UserPlus className="w-5 h-5 text-alura-textMuted group-hover:text-alura-textPrimary shrink-0 transition-colors" />
+            <div className="min-w-0">
+              <b className="block text-[18px] leading-tight font-bold text-alura-textPrimary group-hover:text-white truncate">{requestsCount}</b>
+              <small className="text-xs text-alura-textMuted block truncate">Pedidos</small>
+            </div>
+          </div>
+
+          <div 
+            onClick={() => navigate('/messages')}
+            className="stat bg-alura-surface1 hover:bg-alura-surface2 border border-alura-border rounded-xl p-3 px-3.5 flex items-center gap-2.5 transition-colors cursor-pointer group"
+          >
+            <MessageSquare className="w-5 h-5 text-alura-textMuted group-hover:text-alura-textPrimary shrink-0 transition-colors" />
+            <div className="min-w-0">
+              <b className="block text-[18px] leading-tight font-bold text-alura-textPrimary group-hover:text-white truncate">{messagesCount}</b>
+              <small className="text-xs text-alura-textMuted block truncate">Mensagens</small>
+            </div>
+          </div>
+
+          <div 
+            onClick={() => navigate('/notifications')}
+            className="stat bg-alura-surface1 hover:bg-alura-surface2 border border-alura-border rounded-xl p-3 px-3.5 flex items-center gap-2.5 transition-colors cursor-pointer group"
+          >
+            <Bell className="w-5 h-5 text-alura-textMuted group-hover:text-alura-textPrimary shrink-0 transition-colors" />
+            <div className="min-w-0">
+              <b className="block text-[18px] leading-tight font-bold text-alura-textPrimary group-hover:text-white truncate">{notificationsCount}</b>
+              <small className="text-xs text-alura-textMuted block truncate">Avisos</small>
+            </div>
+          </div>
+        </div>
+
+        {composerBox}
+        {postsList}
+      </div>
+    </main>
   )
 }
 
 // ----------------------------------------------------
 // Componente de Post (Com Lógica Interativa)
 // ----------------------------------------------------
-function Post({ post, user, refreshFeed }: { post: FeedPost, user: any, refreshFeed: () => void }) {
+function Post({ 
+  post, 
+  user, 
+  currentUserProfile, 
+  refreshFeed 
+}: { 
+  post: FeedPost, 
+  user: any, 
+  currentUserProfile?: any, 
+  refreshFeed: () => void 
+}) {
   const { showToast } = useNotification()
   const authorDisplay = post.profiles?.display_name || "Usuário"
   const authorUsername = post.profiles?.username ? `@${post.profiles.username}` : "@usuario"
   const authorInitials = authorDisplay.substring(0, 2).toUpperCase()
   const isOwner = user?.id === post.user_id
+
+  const isStaff = currentUserProfile?.is_staff === true || 
+                  currentUserProfile?.role === "admin" || 
+                  currentUserProfile?.role === "moderator" ||
+                  currentUserProfile?.username === "luisera" ||
+                  currentUserProfile?.username === "adminalura" ||
+                  user?.email?.toLowerCase().includes("admin") ||
+                  user?.user_metadata?.role === "admin" ||
+                  user?.app_metadata?.role === "admin"
 
   const [liked, setLiked] = useState(false)
   const [localLikes, setLocalLikes] = useState(post.likes_count)
@@ -403,6 +527,8 @@ function Post({ post, user, refreshFeed }: { post: FeedPost, user: any, refreshF
   const [isEditing, setIsEditing] = useState(false)
   const [editedContent, setEditedContent] = useState(post.content)
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
+  const [showAdminDeleteConfirm, setShowAdminDeleteConfirm] = useState(false)
+  const [isDeletingAdmin, setIsDeletingAdmin] = useState(false)
 
   // Checar Like inicial (simplificado - na vdd requere query feed_likes. Mas por UX simularemos o toggle via state local+db)
   useEffect(() => {
@@ -430,13 +556,10 @@ function Post({ post, user, refreshFeed }: { post: FeedPost, user: any, refreshF
     try {
       if (newState) {
         await supabase.from('feed_likes').insert({ post_id: post.id, user_id: user.id })
-        // Removido o UPDATE na feed_posts porque o DB recusa sem política RLS de update! 
-        // Em vez disso, usaremos views ou contaremos do feed_likes na query principal.
       } else {
         await supabase.from('feed_likes').delete().eq('post_id', post.id).eq('user_id', user.id)
       }
     } catch (e) {
-      // Revert if error
       setLiked(!newState)
       setLocalLikes(prev => !newState ? prev + 1 : prev - 1)
     }
@@ -445,19 +568,54 @@ function Post({ post, user, refreshFeed }: { post: FeedPost, user: any, refreshF
   async function openComments() {
     setShowComments(true)
     setLoadingComments(true)
-    const { data } = await supabase.from('feed_comments').select(`id, content, created_at, profiles!user_id(display_name, username)`).eq('post_id', post.id).order('created_at', { ascending: true })
+    const { data } = await supabase
+      .from('feed_comments')
+      .select(`id, content, created_at, profiles!user_id(display_name, username, avatar_url)`)
+      .eq('post_id', post.id)
+      .order('created_at', { ascending: true })
     if(data) setComments(data as any)
     setLoadingComments(false)
   }
 
   async function sendComment() {
     if(!newComment.trim() || !user) return
-    const { data } = await supabase.from('feed_comments').insert({ post_id: post.id, user_id: user.id, content: newComment }).select(`id, content, created_at, profiles!user_id(display_name, username)`).single()
+    const { data } = await supabase
+      .from('feed_comments')
+      .insert({ post_id: post.id, user_id: user.id, content: newComment })
+      .select(`id, content, created_at, profiles!user_id(display_name, username, avatar_url)`)
+      .single()
     if (data) {
       setComments([...comments, data as any])
       setNewComment("")
       setLocalComments(prev => prev + 1)
-      // O UPDATE falharia igual o like, desabilitado!
+    }
+  }
+
+  async function handleAdminDeletePost() {
+    setIsDeletingAdmin(true)
+    try {
+      const { error: rpcError } = await supabase.rpc('admin_delete_feed_post', { target_post_id: post.id })
+      if (rpcError) {
+        console.warn("RPC admin_delete_feed_post erro, tentando delete direto:", rpcError)
+        const { error: delError } = await supabase.from('feed_posts').delete().eq('id', post.id)
+        if (delError) throw delError
+      }
+      setShowOptions(false)
+      setShowAdminDeleteConfirm(false)
+      refreshFeed()
+      showToast({ 
+        type: "info", 
+        title: "Publicação removida (Admin)", 
+        message: `A publicação de ${authorUsername} foi removida da plataforma com sucesso.` 
+      })
+    } catch (err: any) {
+      showToast({ 
+        type: "error", 
+        title: "Erro ao moderar", 
+        message: err.message || "Não foi possível remover a publicação." 
+      })
+    } finally {
+      setIsDeletingAdmin(false)
     }
   }
 
@@ -526,41 +684,61 @@ function Post({ post, user, refreshFeed }: { post: FeedPost, user: any, refreshF
 
   return (
     <>
-      <div className="p-5 rounded-[14px] border border-alura-border/60 bg-alura-surface1/90 backdrop-blur-sm hover:border-alura-borderStrong transition-colors space-y-3 relative group">
+      <div className="p-4 rounded-xl border border-alura-border bg-alura-surface1 space-y-3 relative group">
         
         {/* Header */}
-        <div className="flex items-start justify-between">
+        <div className="flex items-center gap-3">
           <UserProfileHoverCard userId={post.user_id} profile={post.profiles} side="right">
-            <div className="flex items-center space-x-3 cursor-pointer group/postauthor">
-              <Avatar className="w-10 h-10 border-2 border-alura-accent shadow-[0_0_8px_rgba(57,255,136,0.2)] bg-alura-surface1">
-                <AvatarFallback className="bg-transparent text-alura-textPrimary text-[13px] font-semibold">{authorInitials}</AvatarFallback>
-              </Avatar>
-              <div className="flex flex-col">
-                <span className="text-[14px] font-medium text-alura-textPrimary group-hover/postauthor:underline leading-tight">{authorDisplay} <span className="text-alura-textMuted font-normal ml-1">{authorUsername}</span></span>
-                <span className="text-[12px] text-alura-textMuted mt-0.5">
-                  {formatTime(post.created_at)}
-                  {post.updated_at && new Date(post.updated_at).getTime() > new Date(post.created_at).getTime() + 1000 && " (editado)"}
-                </span>
-              </div>
+            <div className="w-9 h-9 rounded-full bg-[#243029] text-alura-accent font-bold text-[13px] flex items-center justify-center shrink-0 overflow-hidden cursor-pointer">
+              {post.profiles?.avatar_url ? (
+                <img src={post.profiles.avatar_url} alt={authorDisplay} className="w-full h-full object-cover" />
+              ) : (
+                <span>{authorInitials}</span>
+              )}
+            </div>
+          </UserProfileHoverCard>
+          
+          <UserProfileHoverCard userId={post.user_id} profile={post.profiles} side="right">
+            <div className="flex-1 min-w-0 cursor-pointer leading-tight">
+              <b className="font-semibold text-sm text-alura-textPrimary hover:underline block truncate">
+                {authorDisplay}
+              </b>
+              <small className="text-xs text-alura-textMuted block truncate mt-0.5">
+                {authorUsername} · {formatTime(post.created_at)}
+                {post.updated_at && new Date(post.updated_at).getTime() > new Date(post.created_at).getTime() + 1000 && " (editado)"}
+              </small>
             </div>
           </UserProfileHoverCard>
           
           <div className="relative">
-            <button onClick={() => setShowOptions(!showOptions)} className="text-alura-textMuted hover:text-alura-textPrimary p-1 rounded hover:bg-alura-hover transition-colors">
+            <button 
+              type="button"
+              onClick={() => setShowOptions(!showOptions)} 
+              className="w-8 h-8 rounded-lg flex items-center justify-center text-alura-textMuted hover:bg-alura-surface2 hover:text-alura-textPrimary transition-colors cursor-pointer"
+              title="Mais opções"
+            >
               <MoreHorizontal className="w-4 h-4" />
             </button>
             
             {showOptions && (
-              <div className="absolute right-0 top-full mt-1 w-48 bg-alura-surface1 border border-alura-borderStrong rounded-[10px] shadow-[0_10px_20px_rgba(0,0,0,0.5)] z-20 py-1.5 animate-in fade-in zoom-in duration-200">
+              <div className="absolute right-0 top-full mt-1 w-48 bg-alura-surface1 border border-alura-border rounded-[10px] shadow-[0_10px_20px_rgba(0,0,0,0.5)] z-20 py-1.5 animate-in fade-in zoom-in duration-200">
                 {isOwner ? (
                   <>
-                    <button onClick={() => { setIsEditing(true); setShowOptions(false) }} className="w-full text-left px-3 py-2 text-[13px] text-alura-textPrimary hover:bg-alura-hover flex items-center gap-2"><Edit2 className="w-3.5 h-3.5" /> Editar Publicação</button>
+                    <button onClick={() => { setIsEditing(true); setShowOptions(false) }} className="w-full text-left px-3 py-2 text-[13px] text-alura-textPrimary hover:bg-alura-surface2 flex items-center gap-2"><Edit2 className="w-3.5 h-3.5" /> Editar Publicação</button>
                     <button onClick={() => { setShowDeleteConfirm(true); setShowOptions(false) }} className="w-full text-left px-3 py-2 text-[13px] text-red-500 hover:bg-red-500/10 flex items-center gap-2"><Trash2 className="w-3.5 h-3.5" /> Apagar Publicação</button>
                   </>
                 ) : (
                   <>
-                    <button onClick={handleHidePost} className="w-full text-left px-3 py-2 text-[13px] text-alura-textPrimary hover:bg-alura-hover flex items-center gap-2"><EyeOff className="w-3.5 h-3.5" /> Ocultar Publicação</button>
+                    <button onClick={handleHidePost} className="w-full text-left px-3 py-2 text-[13px] text-alura-textPrimary hover:bg-alura-surface2 flex items-center gap-2"><EyeOff className="w-3.5 h-3.5" /> Ocultar Publicação</button>
                     <button onClick={handleBlockAuthor} className="w-full text-left px-3 py-2 text-[13px] text-red-500 hover:bg-red-500/10 flex items-center gap-2"><Ban className="w-3.5 h-3.5" /> Bloquear {authorUsername}</button>
+                    {isStaff && (
+                      <button 
+                        onClick={() => { setShowAdminDeleteConfirm(true); setShowOptions(false) }} 
+                        className="w-full text-left px-3 py-2 text-[13px] text-red-400 hover:text-red-300 hover:bg-red-500/10 flex items-center gap-2 border-t border-alura-border/40 mt-1 pt-2 font-semibold transition-colors"
+                      >
+                        <Trash2 className="w-3.5 h-3.5 text-red-400" /> Apagar Publicação (Admin)
+                      </button>
+                    )}
                   </>
                 )}
               </div>
@@ -569,18 +747,18 @@ function Post({ post, user, refreshFeed }: { post: FeedPost, user: any, refreshF
         </div>
 
         {/* Content */}
-        <p className="text-[14px] text-alura-textSecondary leading-relaxed pt-1 whitespace-pre-wrap">{post.content}</p>
+        <p className="text-sm text-alura-textPrimary leading-relaxed whitespace-pre-wrap">{post.content}</p>
 
         {/* Attachments */}
         {post.attachments && post.attachments.length > 0 && (
-          <div className="pt-3 grid grid-cols-1 md:grid-cols-2 gap-3">
+          <div className="pt-1 grid grid-cols-1 md:grid-cols-2 gap-2.5">
             {post.attachments.map((att, i) => {
               if (att.type === 'image') return (
-                <div key={i} className="relative group/feedimg rounded-[12px] overflow-hidden border border-alura-border/30 shadow-md">
+                <div key={i} className="relative group/feedimg rounded-lg overflow-hidden border border-alura-border shadow-sm">
                   <img 
                     src={att.url} 
                     alt="anexo" 
-                    className="w-full object-cover max-h-[400px] cursor-pointer hover:opacity-95 transition-opacity" 
+                    className="w-full object-cover max-h-[380px] cursor-pointer hover:opacity-95 transition-opacity" 
                     onClick={() => window.open(att.url, '_blank')} 
                   />
                   <button
@@ -589,7 +767,7 @@ function Post({ post, user, refreshFeed }: { post: FeedPost, user: any, refreshF
                       e.stopPropagation()
                       downloadImageAsPng(att.url, att.name || 'alura-post')
                     }}
-                    className="absolute bottom-2 right-2 px-2.5 py-1.5 rounded-[8px] bg-black/75 hover:bg-black/90 text-white text-[11px] font-medium backdrop-blur-md opacity-0 group-hover/feedimg:opacity-100 transition-all flex items-center gap-1.5 shadow-lg z-10 cursor-pointer border border-white/10"
+                    className="absolute bottom-2 right-2 px-2.5 py-1.5 rounded-md bg-black/75 hover:bg-black/90 text-white text-[11px] font-medium backdrop-blur-md opacity-0 group-hover/feedimg:opacity-100 transition-all flex items-center gap-1.5 shadow-lg z-10 cursor-pointer border border-white/10"
                     title="Baixar imagem em .PNG"
                   >
                     <Download className="w-3.5 h-3.5 text-alura-accent" />
@@ -597,10 +775,10 @@ function Post({ post, user, refreshFeed }: { post: FeedPost, user: any, refreshF
                   </button>
                 </div>
               )
-              if (att.type === 'video') return <video key={i} src={att.url} controls className="rounded-[12px] w-full max-h-[400px] border border-alura-border/30 shadow-md bg-black/20" />
+              if (att.type === 'video') return <video key={i} src={att.url} controls className="rounded-lg w-full max-h-[380px] border border-alura-border shadow-sm bg-black/20" />
               return (
-                 <a key={i} href={att.url} target="_blank" rel="noreferrer" className="flex items-center space-x-3 p-3 bg-alura-surface1 border border-alura-border/60 rounded-[10px] hover:border-alura-borderStrong hover:bg-alura-hover transition-all group shadow-sm col-span-1 md:col-span-2">
-                   <div className="w-10 h-10 bg-alura-surface2 rounded-[8px] flex items-center justify-center text-alura-textSecondary group-hover:text-alura-accent transition-colors"><FileText className="w-5 h-5" /></div>
+                 <a key={i} href={att.url} target="_blank" rel="noreferrer" className="flex items-center space-x-3 p-3 bg-alura-surface2 border border-alura-border rounded-lg hover:border-alura-accent transition-all group shadow-sm col-span-1 md:col-span-2">
+                   <div className="w-9 h-9 bg-alura-surface1 rounded-md flex items-center justify-center text-alura-textSecondary group-hover:text-alura-accent transition-colors"><FileText className="w-5 h-5" /></div>
                    <div className="flex flex-col overflow-hidden">
                      <span className="text-[13px] font-medium text-alura-textPrimary truncate">{att.name}</span>
                      <span className="text-[11px] text-alura-textMuted uppercase font-semibold">Documento Anexo</span>
@@ -612,19 +790,36 @@ function Post({ post, user, refreshFeed }: { post: FeedPost, user: any, refreshF
         )}
 
         {/* Actions */}
-        <div className="flex items-center space-x-5 pt-3">
-          <button onClick={toggleLike} className={`flex items-center space-x-1.5 transition-colors group ${liked ? 'text-alura-accent' : 'text-alura-textMuted hover:text-alura-textPrimary'}`}>
-            <Heart className={`w-4 h-4 ${liked ? 'fill-alura-accent' : 'group-hover:fill-alura-textPrimary/20'}`} />
-            <span className="text-[12px] font-medium">{localLikes}</span>
+        <div className="flex items-center gap-1 pt-1 -ml-2">
+          <button 
+            type="button"
+            onClick={toggleLike} 
+            className={`flex items-center gap-1.5 h-8 px-2.5 rounded-md text-xs font-medium transition-colors cursor-pointer ${
+              liked 
+                ? 'text-alura-accent bg-alura-accent/10' 
+                : 'text-alura-textMuted hover:bg-alura-surface2 hover:text-alura-textPrimary'
+            }`}
+          >
+            <Heart className={`w-4 h-4 ${liked ? 'fill-alura-accent' : ''}`} />
+            <span>{localLikes}</span>
           </button>
           
-          <button onClick={openComments} className="flex items-center space-x-1.5 text-alura-textMuted hover:text-alura-accent transition-colors">
+          <button 
+            type="button"
+            onClick={openComments} 
+            className="flex items-center gap-1.5 h-8 px-2.5 rounded-md text-xs font-medium text-alura-textMuted hover:bg-alura-surface2 hover:text-alura-textPrimary transition-colors cursor-pointer"
+          >
             <MessageSquare className="w-4 h-4" />
-            <span className="text-[12px] font-medium">{localComments}</span>
+            <span>{localComments}</span>
           </button>
           
-          <button onClick={handleShare} className="flex items-center space-x-1.5 text-alura-textMuted hover:text-alura-textPrimary transition-colors ml-auto group" title="Copiar Link">
-            <Share2 className="w-4 h-4 group-hover:scale-110 transition-transform" />
+          <button 
+            type="button"
+            onClick={handleShare} 
+            className="flex items-center gap-1.5 h-8 px-2.5 rounded-md text-xs font-medium text-alura-textMuted hover:bg-alura-surface2 hover:text-alura-textPrimary transition-colors ml-auto cursor-pointer" 
+            title="Copiar Link"
+          >
+            <Share2 className="w-4 h-4" />
           </button>
         </div>
       </div>
@@ -648,8 +843,12 @@ function Post({ post, user, refreshFeed }: { post: FeedPost, user: any, refreshF
                 comments.map(c => (
                   <div key={c.id} className="flex items-start space-x-3">
                     <UserProfileHoverCard userId={c.user_id} profile={c.profiles} side="right">
-                      <Avatar className="w-8 h-8 mt-1 border border-alura-border bg-alura-surface2 cursor-pointer">
-                        <AvatarFallback className="text-[11px] text-alura-textPrimary">{c.profiles?.display_name?.substring(0,2).toUpperCase()}</AvatarFallback>
+                      <Avatar className="w-8 h-8 mt-1 border border-alura-border bg-alura-surface2 cursor-pointer overflow-hidden shrink-0">
+                        {c.profiles?.avatar_url ? (
+                          <img src={c.profiles.avatar_url} alt={c.profiles?.display_name} className="w-full h-full object-cover" />
+                        ) : (
+                          <AvatarFallback className="text-[11px] text-alura-textPrimary">{c.profiles?.display_name?.substring(0,2).toUpperCase()}</AvatarFallback>
+                        )}
                       </Avatar>
                     </UserProfileHoverCard>
                     <div className="flex-1 bg-alura-surface2 p-3 rounded-[12px] border border-alura-border/40">
@@ -721,6 +920,37 @@ function Post({ post, user, refreshFeed }: { post: FeedPost, user: any, refreshF
             <div className="flex justify-center gap-3 pt-2">
               <button onClick={() => setShowDeleteConfirm(false)} className="flex-1 py-2.5 text-[13px] border border-alura-border rounded-[8px] text-alura-textPrimary hover:bg-alura-hover transition-colors font-medium">Cancelar</button>
               <button onClick={deletePost} className="flex-1 py-2.5 text-[13px] bg-red-500 hover:bg-red-600 text-white font-semibold rounded-[8px] transition-all">Apagar</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal Confirmação Apagar (Admin) */}
+      {showAdminDeleteConfirm && (
+        <div className="fixed inset-0 z-[60] bg-black/75 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-alura-surface2 border border-red-500/40 rounded-[14px] w-full max-w-sm p-6 shadow-2xl relative animate-in zoom-in-95 duration-200 text-center space-y-4">
+            <div className="w-12 h-12 rounded-full bg-red-500/15 text-red-500 flex items-center justify-center mx-auto mb-2 border border-red-500/25">
+              <Trash2 className="w-6 h-6" />
+            </div>
+            <h3 className="text-white text-[17px] font-semibold">Apagar Publicação (Admin)?</h3>
+            <p className="text-alura-textMuted text-[13px] leading-relaxed">
+              Como administrador, você está removendo a publicação de <strong className="text-white">{authorUsername}</strong> do feed. Esta moderação é irreversível.
+            </p>
+            <div className="flex justify-center gap-3 pt-2">
+              <button 
+                onClick={() => setShowAdminDeleteConfirm(false)} 
+                disabled={isDeletingAdmin}
+                className="flex-1 py-2.5 text-[13px] border border-alura-border rounded-[8px] text-alura-textPrimary hover:bg-alura-hover transition-colors font-medium disabled:opacity-50"
+              >
+                Cancelar
+              </button>
+              <button 
+                onClick={handleAdminDeletePost} 
+                disabled={isDeletingAdmin}
+                className="flex-1 py-2.5 text-[13px] bg-red-500 hover:bg-red-600 text-white font-semibold rounded-[8px] transition-all shadow-[0_0_15px_rgba(239,68,68,0.3)] flex items-center justify-center gap-2 disabled:opacity-50"
+              >
+                {isDeletingAdmin ? <Loader2 className="w-4 h-4 animate-spin text-white" /> : "Remover Post"}
+              </button>
             </div>
           </div>
         </div>

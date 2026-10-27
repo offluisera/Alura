@@ -5,7 +5,8 @@ defmodule AluraWeb.Endpoint do
   socket "/socket", AluraWeb.UserSocket,
     websocket: [
       timeout: 45_000,
-      connect_info: [:peer_data, :x_headers, :uri]
+      connect_info: [:peer_data, :x_headers, :uri],
+      check_origin: false
     ],
     longpoll: false
 

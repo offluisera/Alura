@@ -69,12 +69,22 @@ export const CtaSection: React.FC = () => {
         Sua comunidade merece um lugar assim.
       </h2>
 
-      <a
-        href="#"
-        className="cta-button bg-[var(--color-accent)] text-black text-lg font-medium px-8 py-4 rounded-full hover:brightness-110 active:scale-95 transition-all relative z-10 inline-flex items-center gap-2"
-      >
-        Criar minha conta grátis
-      </a>
+      <div className="flex flex-col sm:flex-row items-center justify-center gap-4 relative z-10">
+        <a
+          href="https://app.alura.net.br/web"
+          target="_blank"
+          rel="noreferrer"
+          className="cta-button w-full sm:w-auto bg-[var(--color-accent)] text-black text-lg font-medium px-8 py-4 rounded-full hover:brightness-110 active:scale-95 transition-all inline-flex items-center justify-center gap-2"
+        >
+          Criar minha conta grátis
+        </a>
+        <a
+          href="/baixar"
+          className="cta-button w-full sm:w-auto border border-white/20 bg-white/5 text-white text-lg font-medium px-8 py-4 rounded-full hover:bg-white/10 active:scale-95 transition-all inline-flex items-center justify-center gap-2"
+        >
+          Baixar para Windows
+        </a>
+      </div>
     </section>
   );
 };

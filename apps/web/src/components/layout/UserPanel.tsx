@@ -6,7 +6,13 @@ import { SpotifyIcon } from '../shared/SpotifyActivityCard'
 
 type StatusType = 'online' | 'idle' | 'dnd' | 'offline'
 
-export function UserPanel({ user, profile }: { user: any, profile: any }) {
+interface UserPanelProps {
+  user: any
+  profile: any
+  isCollapsed?: boolean
+}
+
+export function UserPanel({ user, profile, isCollapsed = false }: UserPanelProps) {
   const [isOpen, setIsOpen] = useState(false)
   const [isMuted, setIsMuted] = useState(false)
   const [isDeafened, setIsDeafened] = useState(false)
@@ -37,6 +43,14 @@ export function UserPanel({ user, profile }: { user: any, profile: any }) {
       if (error) console.error("Erro ao atualizar status:", error)
     } catch (error) {
       console.error("Erro inesperado ao atualizar status:", error)
+    }
+  }
+
+  const handleToggleDeafen = () => {
+    const nextDeaf = !isDeafened
+    setIsDeafened(nextDeaf)
+    if (nextDeaf && !isMuted) {
+      setIsMuted(true) // sem áudio, sem microfone (regra alura-sidebar.html)
     }
   }
 
@@ -71,12 +85,22 @@ export function UserPanel({ user, profile }: { user: any, profile: any }) {
   }
 
   return (
-    <div className="relative px-3 py-2.5 bg-alura-surface1 border-t border-alura-border flex items-center justify-between gap-1">
+    <div className={`relative bg-alura-surface1 border-t border-alura-border select-none transition-all ${
+      isCollapsed 
+        ? "p-2 flex flex-col items-center gap-1.5" 
+        : "px-2.5 py-2 flex items-center justify-between gap-1"
+    }`}>
       
       {/* Popover de Status e Ações Rápidas */}
       {isOpen && (
-        <div ref={menuRef} className="absolute bottom-[115%] left-3 w-64 bg-alura-surface2 border border-alura-border rounded-[14px] shadow-2xl z-50 overflow-hidden animate-in fade-in slide-in-from-bottom-2 duration-200">
-          
+        <div 
+          ref={menuRef} 
+          className={`absolute w-64 bg-alura-surface2 border border-alura-border rounded-[14px] shadow-2xl z-50 overflow-hidden animate-in fade-in duration-150 ${
+            isCollapsed 
+              ? "left-[calc(100%+8px)] bottom-2" 
+              : "bottom-[calc(100%+8px)] left-2"
+          }`}
+        >
           {/* Header do Usuário no Popover */}
           <div className="p-3 border-b border-alura-border/60 bg-alura-surface1/60">
             <div className="flex items-center gap-2.5">
@@ -170,73 +194,89 @@ export function UserPanel({ user, profile }: { user: any, profile: any }) {
 
       {/* Perfil (Avatar + Nome) - Clicável para abrir popover */}
       <button 
+        type="button"
         onClick={() => setIsOpen(!isOpen)}
-        className="flex items-center gap-2.5 p-1.5 rounded-xl hover:bg-alura-hover transition-all cursor-pointer group flex-1 min-w-0 text-left"
-        title="Clique para gerenciar status e perfil"
+        className={`rounded-lg hover:bg-alura-hover transition-all cursor-pointer group text-left ${
+          isCollapsed 
+            ? "p-1.5 flex items-center justify-center" 
+            : "flex items-center gap-2.5 p-1 flex-1 min-w-0"
+        }`}
+        title={`${profile.display_name || profile.username} · ${getStatusText(profile.status)}`}
+        aria-label="Menu do perfil e status"
       >
-        <div className="relative shrink-0">
-          {profile.avatar_url ? (
-            <img src={profile.avatar_url} alt={profile.username} className="w-8 h-8 rounded-full object-cover shadow-sm" />
-          ) : (
-            <div className="w-8 h-8 rounded-full bg-alura-surface2 flex items-center justify-center shadow-sm">
-              <User className="w-4 h-4 text-alura-textMuted" />
-            </div>
-          )}
-          {/* Indicador de Status */}
-          <div className={`absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 rounded-full border-2 border-alura-surface1 flex items-center justify-center ${getStatusColor(profile.status)}`}>
+        <div className="relative shrink-0 w-9 h-9">
+          <div className="w-9 h-9 rounded-full overflow-hidden bg-[#243029] text-alura-accent font-bold text-[13px] flex items-center justify-center">
+            {profile.avatar_url ? (
+              <img src={profile.avatar_url} alt={profile.username} className="w-full h-full object-cover" />
+            ) : (
+              <span>{(profile.display_name || "U").substring(0, 2).toUpperCase()}</span>
+            )}
+          </div>
+          {/* Indicador de Status (.st do alura-sidebar.html) */}
+          <div className={`absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full border-2 border-alura-surface1 box-content flex items-center justify-center z-10 ${getStatusColor(profile.status)}`}>
             {getStatusIcon(profile.status)}
           </div>
         </div>
 
-        <div className="flex-1 min-w-0">
-          <div className="text-[13px] font-bold text-alura-textPrimary truncate group-hover:text-white transition-colors">
-            {profile.display_name || profile.username}
+        {!isCollapsed && (
+          <div className="flex-1 min-w-0 leading-tight">
+            <b className="text-[13.5px] font-bold text-white block group-hover:text-alura-accent transition-colors truncate">
+              {profile.display_name || profile.username}
+            </b>
+            {profile?.spotify_activity?.isPlaying && profile?.show_spotify_activity !== false ? (
+              <div className="text-[11px] text-[#39FF88] truncate flex items-center gap-1 font-medium animate-in fade-in duration-200 mt-0.5">
+                <SpotifyIcon className="w-2.5 h-2.5 shrink-0" />
+                <span className="truncate">{profile.spotify_activity.trackName}</span>
+              </div>
+            ) : (
+              <small className="text-[11.5px] text-alura-textMuted block transition-colors mt-0.5 truncate">
+                {getStatusText(profile.status)}
+              </small>
+            )}
           </div>
-          {profile?.spotify_activity?.isPlaying && profile?.show_spotify_activity !== false ? (
-            <div className="text-[11px] text-[#39FF88] truncate flex items-center gap-1 font-medium animate-in fade-in duration-200">
-              <SpotifyIcon className="w-2.5 h-2.5 shrink-0" />
-              <span className="truncate">{profile.spotify_activity.trackName}</span>
-            </div>
-          ) : (
-            <div className="text-[11px] text-alura-textDisabled truncate transition-colors group-hover:text-alura-textMuted">
-              {getStatusText(profile.status)}
-            </div>
-          )}
-        </div>
+        )}
       </button>
 
       {/* Botões Rápidos de Ação: Mic, Áudio, Engrenagem */}
-      <div className="flex items-center gap-0.5 shrink-0">
+      <div className={`flex items-center gap-0.5 shrink-0 ${isCollapsed ? "flex-col" : ""}`}>
         <button
+          type="button"
           onClick={() => setIsMuted(!isMuted)}
-          className={`w-7 h-7 rounded-lg flex items-center justify-center transition-colors cursor-pointer ${
+          className={`w-7 h-7 rounded-md flex items-center justify-center transition-colors cursor-pointer ${
             isMuted 
-              ? "text-alura-danger bg-alura-danger/10 hover:bg-alura-danger/20" 
-              : "text-alura-textMuted hover:text-white hover:bg-alura-hover"
+              ? "text-[#ff6b6b] bg-[#ff6b6b]/15 hover:bg-[#ff6b6b]/25" 
+              : "text-alura-textMuted hover:text-white hover:bg-alura-surface2"
           }`}
           title={isMuted ? "Ativar Microfone" : "Silenciar Microfone"}
+          aria-label={isMuted ? "Ativar Microfone" : "Silenciar Microfone"}
+          aria-pressed={isMuted}
         >
-          {isMuted ? <MicOff className="w-3.5 h-3.5" /> : <Mic className="w-3.5 h-3.5" />}
+          {isMuted ? <MicOff className="w-4 h-4" /> : <Mic className="w-4 h-4" />}
         </button>
 
         <button
-          onClick={() => setIsDeafened(!isDeafened)}
-          className={`w-7 h-7 rounded-lg flex items-center justify-center transition-colors cursor-pointer ${
+          type="button"
+          onClick={handleToggleDeafen}
+          className={`w-7 h-7 rounded-md flex items-center justify-center transition-colors cursor-pointer ${
             isDeafened 
-              ? "text-alura-danger bg-alura-danger/10 hover:bg-alura-danger/20" 
-              : "text-alura-textMuted hover:text-white hover:bg-alura-hover"
+              ? "text-[#ff6b6b] bg-[#ff6b6b]/15 hover:bg-[#ff6b6b]/25" 
+              : "text-alura-textMuted hover:text-white hover:bg-alura-surface2"
           }`}
-          title={isDeafened ? "Ativar Áudio" : "Ensurdecer Áudio"}
+          title={isDeafened ? "Ativar Áudio" : "Silenciar Áudio"}
+          aria-label={isDeafened ? "Ativar Áudio" : "Silenciar Áudio"}
+          aria-pressed={isDeafened}
         >
-          {isDeafened ? <VolumeX className="w-3.5 h-3.5" /> : <Headphones className="w-3.5 h-3.5" />}
+          {isDeafened ? <VolumeX className="w-4 h-4" /> : <Headphones className="w-4 h-4" />}
         </button>
 
         <button
+          type="button"
           onClick={() => navigate('/settings')}
-          className="w-7 h-7 rounded-lg flex items-center justify-center text-alura-textMuted hover:text-alura-accent hover:bg-alura-hover transition-colors cursor-pointer"
-          title="Configurações do Usuário"
+          className="w-7 h-7 rounded-md flex items-center justify-center text-alura-textMuted hover:text-white hover:bg-alura-surface2 transition-colors cursor-pointer"
+          title="Configurações"
+          aria-label="Configurações"
         >
-          <SettingsIcon className="w-3.5 h-3.5" />
+          <SettingsIcon className="w-4 h-4" />
         </button>
       </div>
 

@@ -12,6 +12,8 @@ export type SignalType =
   | 'call_busy'
   | 'screen_share_start'
   | 'screen_share_stop'
+  | 'stream_viewer_join'
+  | 'stream_viewer_leave'
 
 export interface CallSignal {
   id: string

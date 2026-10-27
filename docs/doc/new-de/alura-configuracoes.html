@@ -1,0 +1,394 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Alura · Configurações</title>
+<style>
+  :root {
+    --bg: #0c0e0d; --field: #0f1211; --side: #101312; --card: #161918; --card-2: #1d2120; --line: #232826;
+    --text: #f2f5f3; --muted: #8f9a95; --accent: #2dff7a; --accent-soft: rgba(45,255,122,.12);
+    --on-accent: #04130a; --online: #3ddc84; --away: #f5c451; --dnd: #ff6b6b; --off: #555d59;
+    color-scheme: dark;
+    box-sizing: border-box;
+  }
+  *, *::before, *::after { box-sizing: inherit; }
+  html, body { height: 100%; margin: 0; }
+  body { font-family: "Inter", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; background: var(--bg); color: var(--text); font-size: 14px; }
+  button, input, select, textarea { font: inherit; color: inherit; }
+  button { background: none; border: 0; cursor: pointer; }
+  [hidden] { display: none !important; }
+  svg.i { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; flex: none; }
+  :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+  .app { height: 100vh; display: grid; grid-template-rows: 64px minmax(0,1fr); }
+  .bar { display: flex; align-items: center; gap: 12px; padding: 0 24px; border-bottom: 1px solid var(--line); }
+  .bar svg.logo { width: 30px; height: 30px; }
+  .bar h1 { margin: 0 0 0 4px; font-size: 18px; letter-spacing: -.01em; }
+  .bar .sp { flex: 1; }
+  .esc { height: 36px; padding: 0 12px 0 14px; border-radius: 8px; background: var(--card); color: var(--muted); font-weight: 600; font-size: 13px; display: flex; align-items: center; gap: 8px; }
+  .esc:hover { background: var(--card-2); color: var(--text); }
+  .esc kbd { font: 600 11px/18px inherit; background: var(--card-2); border-radius: 4px; padding: 0 6px; color: var(--muted); }
+
+  .body { display: grid; grid-template-columns: 260px minmax(0,1fr) 340px; min-height: 0; }
+  .body.nopreview { grid-template-columns: 260px minmax(0,1fr); }
+
+  /* Navegação */
+  .nav { background: var(--side); border-right: 1px solid var(--line); padding: 20px 12px; display: flex; flex-direction: column; gap: 2px; overflow-y: auto; }
+  .nav h2 { margin: 0 12px 8px; font-size: 12px; font-weight: 600; color: var(--muted); }
+  .nv { position: relative; display: flex; align-items: center; gap: 12px; height: 40px; padding: 0 12px; border-radius: 8px; color: var(--muted); font-weight: 500; text-align: left; width: 100%; transition: background .15s, color .15s; }
+  .nv:hover { background: var(--card-2); color: var(--text); }
+  .nv[aria-current="true"] { background: var(--accent-soft); color: var(--text); }
+  .nv[aria-current="true"] svg { color: var(--accent); }
+  .nv[aria-current="true"]::before { content: ""; position: absolute; left: -12px; top: 9px; bottom: 9px; width: 3px; border-radius: 0 3px 3px 0; background: var(--accent); }
+  .nv.danger { color: var(--dnd); } .nv.danger:hover { background: rgba(255,107,107,.1); color: var(--dnd); }
+  .nav .sep { height: 1px; background: var(--line); margin: 12px 8px; }
+
+  /* Conteúdo */
+  .content { overflow-y: auto; padding: 32px 32px 120px; }
+  .wrap { max-width: 620px; margin: 0 auto; display: grid; gap: 20px; }
+  .wrap > header h2 { margin: 0 0 4px; font-size: 24px; letter-spacing: -.02em; }
+  .wrap > header p { margin: 0; color: var(--muted); }
+  .card { background: var(--card); border-radius: 14px; padding: 20px; display: grid; gap: 16px; }
+  .card h3 { margin: 0; font-size: 15px; }
+  .card h3 + p { margin: -10px 0 0; color: var(--muted); font-size: 13px; }
+
+  /* Banner + avatar */
+  .ban { position: relative; height: 150px; border-radius: 12px; background-size: cover; background-position: center; }
+  .ban .av { position: absolute; left: 20px; bottom: -34px; width: 84px; height: 84px; border-radius: 50%; border: 5px solid var(--card); background: #243029 center / cover; color: var(--accent); display: grid; place-items: center; font-size: 28px; font-weight: 700; }
+  .ban .btns { position: absolute; right: 12px; bottom: 12px; display: flex; gap: 8px; }
+  .gap-av { height: 26px; }
+  .btn { height: 34px; padding: 0 14px; border-radius: 8px; background: var(--accent); color: var(--on-accent); font-weight: 700; font-size: 13px; transition: filter .15s; }
+  .btn:hover { filter: brightness(.92); }
+  .btn.sec { background: rgba(12,14,13,.75); color: var(--text); font-weight: 600; backdrop-filter: blur(6px); }
+  .btn.sec:hover { background: rgba(12,14,13,.95); filter: none; }
+  .btn.flat { background: var(--card-2); color: var(--text); font-weight: 600; } .btn.flat:hover { background: #272c2a; filter: none; }
+  .btn.red { background: rgba(255,107,107,.14); color: var(--dnd); } .btn.red:hover { background: var(--dnd); color: #1a0606; filter: none; }
+  .themes { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
+  .theme { position: relative; height: 64px; border-radius: 10px; background-size: cover; display: flex; align-items: flex-end; padding: 6px 8px; font-size: 11px; font-weight: 700; text-shadow: 0 1px 4px rgba(0,0,0,.8); }
+  .theme[aria-pressed="true"] { box-shadow: 0 0 0 2px var(--card), 0 0 0 4px var(--accent); }
+  .theme:hover { filter: brightness(1.15); }
+
+  /* Campos */
+  label.f { display: grid; gap: 8px; font-size: 12px; font-weight: 600; color: var(--muted); }
+  .in { width: 100%; height: 44px; background: var(--field); border: 1px solid var(--line); border-radius: 8px; padding: 0 14px; font-size: 15px; color: var(--text); }
+  textarea.in { height: 84px; padding: 12px 14px; resize: none; line-height: 1.4; }
+  select.in { appearance: none; cursor: pointer; background-image: linear-gradient(45deg, transparent 50%, var(--muted) 50%), linear-gradient(135deg, var(--muted) 50%, transparent 50%); background-position: calc(100% - 20px) 19px, calc(100% - 15px) 19px; background-size: 5px 5px; background-repeat: no-repeat; padding-right: 36px; }
+  .in:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+  .in:disabled { opacity: .6; }
+  .cnt { text-align: right; font-weight: 400; font-size: 12px; margin-top: -4px; }
+  .two { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .chips { display: flex; flex-wrap: wrap; gap: 8px; }
+  .chip { height: 32px; padding: 0 6px 0 14px; border-radius: 16px; background: var(--card-2); display: inline-flex; align-items: center; gap: 6px; font-weight: 500; }
+  .chip button { width: 22px; height: 22px; border-radius: 50%; display: grid; place-items: center; color: var(--muted); }
+  .chip button:hover { background: rgba(255,255,255,.1); color: var(--text); }
+  .chip svg { width: 12px; height: 12px; stroke-width: 2.4; }
+  .addchip { height: 32px; width: 150px; border-radius: 16px; background: transparent; border: 1px dashed var(--line); padding: 0 14px; }
+  .addchip:focus { outline: none; border-color: var(--accent); }
+  .addchip::placeholder { color: var(--muted); }
+
+  /* Linhas / toggles */
+  .row { display: flex; align-items: center; gap: 16px; padding: 14px 0; border-top: 1px solid var(--line); }
+  .row:first-of-type { border-top: 0; padding-top: 0; } .row:last-child { padding-bottom: 0; }
+  .row .t { flex: 1; min-width: 0; } .row .t b { display: block; font-weight: 600; } .row .t small { color: var(--muted); font-size: 13px; }
+  .row .ic { width: 40px; height: 40px; border-radius: 10px; background: var(--card-2); display: grid; place-items: center; color: var(--text); flex: none; font-weight: 700; }
+  .sw { position: relative; width: 40px; height: 24px; border-radius: 12px; background: #2e3532; flex: none; transition: background .15s; }
+  .sw::after { content: ""; position: absolute; left: 3px; top: 3px; width: 18px; height: 18px; border-radius: 50%; background: #fff; transition: transform .15s; }
+  .sw[aria-checked="true"] { background: var(--accent); }
+  .sw[aria-checked="true"]::after { transform: translateX(16px); background: var(--on-accent); }
+  .row select.in { width: 190px; height: 38px; font-size: 14px; background-position: calc(100% - 20px) 16px, calc(100% - 15px) 16px; }
+  .swatches { display: flex; gap: 10px; }
+  .swatch { width: 32px; height: 32px; border-radius: 50%; }
+  .swatch[aria-pressed="true"] { box-shadow: 0 0 0 2px var(--card), 0 0 0 4px currentColor; }
+  input[type=range] { accent-color: var(--accent); width: 190px; }
+
+  /* Prévia */
+  .prev { border-left: 1px solid var(--line); background: var(--side); overflow-y: auto; padding: 32px 24px; }
+  .prev h4 { margin: 0 0 12px; font-size: 12px; font-weight: 600; color: var(--muted); display: flex; justify-content: space-between; }
+  .prev h4 span { color: var(--accent); }
+  .pc { background: var(--card); border-radius: 14px; overflow: hidden; }
+  .pc .ban { border-radius: 0; height: 110px; }
+  .pc .ban .av { width: 72px; height: 72px; font-size: 24px; bottom: -30px; border-color: var(--card); }
+  .pc .in2 { padding: 40px 20px 20px; display: grid; gap: 8px; }
+  .pc b { font-size: 18px; display: flex; align-items: center; gap: 6px; } .pc b svg { width: 16px; height: 16px; color: var(--accent); stroke-width: 2.4; }
+  .pc .u { color: var(--muted); } .pc p { margin: 0; line-height: 1.45; overflow-wrap: anywhere; }
+  .pc .chips { gap: 6px; } .pc .chip { height: 26px; padding: 0 10px; font-size: 12px; background: var(--card-2); }
+  .stats { display: grid; grid-template-columns: repeat(3,1fr); text-align: center; border-top: 1px solid var(--line); padding: 14px 0; }
+  .stats b { display: block; font-size: 18px; justify-content: center; } .stats small { color: var(--muted); font-size: 12px; }
+
+  /* Barra de alterações */
+  .save { position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%); width: min(560px, calc(100vw - 32px)); background: var(--card-2); border-radius: 12px; padding: 10px 10px 10px 18px; display: flex; align-items: center; gap: 10px; box-shadow: 0 12px 40px rgba(0,0,0,.55); z-index: 5; }
+  .save span { flex: 1; font-weight: 500; }
+  .link { height: 34px; padding: 0 12px; border-radius: 8px; color: var(--muted); font-weight: 600; } .link:hover { color: var(--text); }
+  .toast { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%); background: var(--card-2); border-radius: 8px; padding: 10px 16px; font-weight: 600; box-shadow: 0 8px 24px rgba(0,0,0,.4); }
+
+  @media (max-width: 1100px) { .body { grid-template-columns: 240px minmax(0,1fr) !important; } .prev { display: none; } }
+  @media (max-width: 760px) {
+    .body { grid-template-columns: 1fr !important; grid-template-rows: auto minmax(0,1fr); }
+    .nav { flex-direction: row; overflow-x: auto; padding: 8px; border-right: 0; border-bottom: 1px solid var(--line); }
+    .nav h2, .nav .sep { display: none; } .nv { width: auto; white-space: nowrap; } .nv[aria-current="true"]::before { display: none; }
+    .content { padding: 20px 16px 120px; } .two { grid-template-columns: 1fr; } .row select.in, input[type=range] { width: 130px; }
+  }
+  @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <linearGradient id="g1" x1="15%" y1="85%" x2="65%" y2="15%"><stop offset="0" stop-color="#00DFA0"/><stop offset=".4" stop-color="#39FF88"/><stop offset="1" stop-color="#7EFFBD"/></linearGradient>
+    <linearGradient id="g2" x1="35%" y1="15%" x2="85%" y2="85%"><stop offset="0" stop-color="#00DFA0"/><stop offset=".45" stop-color="#00B377"/><stop offset="1" stop-color="#004B1F"/></linearGradient>
+    <linearGradient id="g3" x1="50%" y1="45%" x2="50%" y2="90%"><stop offset="0" stop-color="#007A40"/><stop offset=".5" stop-color="#003516"/><stop offset="1" stop-color="#001609"/></linearGradient>
+    <symbol id="user" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21c.6-4 3.700-6 8-6s7.400 2 8 6"/></symbol>
+    <symbol id="id" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="3"/><circle cx="9" cy="11" r="2"/><path d="M6 16c.5-1.500 1.700-2 3-2s2.500.5 3 2M15 10h3M15 14h3"/></symbol>
+    <symbol id="lock" viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 018 0v3"/></symbol>
+    <symbol id="bell" viewBox="0 0 24 24"><path d="M6 17V11a6 6 0 0112 0v6l2 2H4zM10 21h4"/></symbol>
+    <symbol id="palette" viewBox="0 0 24 24"><path d="M12 3a9 9 0 100 18c1.500 0 2-1 1.500-2s0-2.500 1.500-2.500H17a4 4 0 004-4A9 9 0 0012 3z"/><path d="M7.500 11h.01M10 7.500h.01M14.500 7.500h.01"/></symbol>
+    <symbol id="mic" viewBox="0 0 24 24"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0014 0M12 18v3"/></symbol>
+    <symbol id="link" viewBox="0 0 24 24"><path d="M10 14a4 4 0 005.700 0l3-3a4 4 0 00-5.700-5.700l-1 1M14 10a4 4 0 00-5.700 0l-3 3a4 4 0 005.700 5.700l1-1"/></symbol>
+    <symbol id="code" viewBox="0 0 24 24"><path d="M8 7l-5 5 5 5M16 7l5 5-5 5"/></symbol>
+    <symbol id="out" viewBox="0 0 24 24"><path d="M10 4H6a2 2 0 00-2 2v12a2 2 0 002 2h4M15 8l4 4-4 4M19 12H9"/></symbol>
+    <symbol id="x" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></symbol>
+    <symbol id="check" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M8 12.500l3 3 5-6"/></symbol>
+  </defs>
+</svg>
+
+<div class="app">
+  <header class="bar">
+    <svg class="logo" viewBox="0 0 100 100" fill="none" aria-label="Alura">
+      <path d="M26 73C34 60 41 53 50 53C59 53 66 60 74 73C66 64 58 59 50 59C42 59 34 64 26 73Z" fill="url(#g3)"/>
+      <path d="M50 14C55 14 59 18 61 22L83 67C87 75 80 83 73 81C69 80 66 77 64 72L51 44C50 42 49 32 50 14Z" fill="url(#g2)"/>
+      <path d="M50 14C44 14 40 18 38 22L17 67C13 75 20 83 27 81C31 80 34 77 36 72L49 44C51 40 52 30 55 22C54 16 52 14 50 14Z" fill="url(#g1)"/>
+    </svg>
+    <h1>Configurações</h1>
+    <span class="sp"></span>
+    <button class="esc" id="close">Fechar <kbd>ESC</kbd></button>
+  </header>
+
+  <div class="body" id="body">
+    <nav class="nav" aria-label="Seções">
+      <h2>Configurações de usuário</h2>
+      <button class="nv" data-s="perfil" aria-current="true"><svg class="i"><use href="#id"/></svg>Perfil e identidade</button>
+      <button class="nv" data-s="conta"><svg class="i"><use href="#user"/></svg>Dados da conta</button>
+      <button class="nv" data-s="privacidade"><svg class="i"><use href="#lock"/></svg>Privacidade e segurança</button>
+      <button class="nv" data-s="notificacoes"><svg class="i"><use href="#bell"/></svg>Notificações</button>
+      <button class="nv" data-s="aparencia"><svg class="i"><use href="#palette"/></svg>Aparência</button>
+      <button class="nv" data-s="voz"><svg class="i"><use href="#mic"/></svg>Voz, vídeo e áudio</button>
+      <button class="nv" data-s="conexoes"><svg class="i"><use href="#link"/></svg>Conexões</button>
+      <button class="nv" data-s="avancado"><svg class="i"><use href="#code"/></svg>Avançado</button>
+      <div class="sep"></div>
+      <button class="nv danger" id="logout"><svg class="i"><use href="#out"/></svg>Sair da conta</button>
+    </nav>
+
+    <main class="content" id="content">
+      <!-- PERFIL -->
+      <div class="wrap" data-p="perfil">
+        <header><h2>Perfil e identidade</h2><p>Personalize como as pessoas veem você na Alura.</p></header>
+        <section class="card">
+          <h3>Identidade visual</h3>
+          <div class="ban" id="ban">
+            <div class="av" id="av">C</div>
+            <div class="btns">
+              <button class="btn sec" id="up-ban">Subir banner</button>
+              <button class="btn sec" id="up-av">Mudar foto</button>
+            </div>
+          </div>
+          <div class="gap-av"></div>
+          <div>
+            <p style="margin:0 0 10px;color:var(--muted);font-size:12px;font-weight:600">Banners temáticos</p>
+            <div class="themes" id="themes"></div>
+          </div>
+          <input type="file" id="file-ban" accept="image/*" hidden>
+          <input type="file" id="file-av" accept="image/*" hidden>
+        </section>
+        <section class="card">
+          <h3>Informações</h3>
+          <div class="two">
+            <label class="f">Nome de exibição<input class="in" id="f-name" value="Continha" maxlength="32"></label>
+            <label class="f">Nome de usuário<input class="in" id="f-user" value="contatestel" disabled></label>
+          </div>
+          <label class="f">Sobre mim<textarea class="in" id="f-bio" maxlength="140">Apenas isso mesmo</textarea></label>
+          <div class="cnt" id="bio-cnt"></div>
+          <div>
+            <p style="margin:0 0 10px;color:var(--muted);font-size:12px;font-weight:600">Interesses</p>
+            <div class="chips" id="tags"></div>
+          </div>
+        </section>
+      </div>
+
+      <!-- CONTA -->
+      <div class="wrap" data-p="conta" hidden>
+        <header><h2>Dados da conta</h2><p>E-mail, senha e exclusão da conta.</p></header>
+        <section class="card">
+          <label class="f">E-mail<input class="in" value="patetagames2013@gmail.com" disabled></label>
+          <div class="row"><div class="t"><b>Senha</b><small>Altere periodicamente para manter a conta segura.</small></div><button class="btn flat">Alterar senha</button></div>
+        </section>
+        <section class="card">
+          <h3>Zona de perigo</h3><p>Excluir a conta apaga seus dados e não pode ser desfeito.</p>
+          <div><button class="btn red">Excluir conta</button></div>
+        </section>
+      </div>
+
+      <!-- PRIVACIDADE -->
+      <div class="wrap" data-p="privacidade" hidden>
+        <header><h2>Privacidade e segurança</h2><p>Controle quem vê e fala com você.</p></header>
+        <section class="card">
+          <div class="row"><div class="t"><b>Quem pode me adicionar</b><small>Defina quem pode enviar solicitações.</small></div>
+            <select class="in"><option>Todos</option><option>Amigos de amigos</option><option>Ninguém</option></select></div>
+          <div class="row"><div class="t"><b>Mostrar status online</b><small>Seus amigos veem quando você está ativo.</small></div><button class="sw" role="switch" aria-checked="true" aria-label="Mostrar status online"></button></div>
+          <div class="row"><div class="t"><b>Mostrar atividade do Spotify</b><small>Exibe a música que você está ouvindo.</small></div><button class="sw" role="switch" aria-checked="true" aria-label="Mostrar atividade do Spotify"></button></div>
+          <div class="row"><div class="t"><b>Verificação em duas etapas</b><small>Uma camada extra ao entrar na conta.</small></div><button class="sw" role="switch" aria-checked="false" aria-label="Verificação em duas etapas"></button></div>
+        </section>
+      </div>
+
+      <!-- NOTIFICAÇÕES -->
+      <div class="wrap" data-p="notificacoes" hidden>
+        <header><h2>Notificações</h2><p>Escolha o que você quer receber.</p></header>
+        <section class="card">
+          <div class="row"><div class="t"><b>Solicitações de amizade</b></div><button class="sw" role="switch" aria-checked="true" aria-label="Solicitações de amizade"></button></div>
+          <div class="row"><div class="t"><b>Mensagens diretas</b></div><button class="sw" role="switch" aria-checked="true" aria-label="Mensagens diretas"></button></div>
+          <div class="row"><div class="t"><b>Publicações de amigos</b></div><button class="sw" role="switch" aria-checked="false" aria-label="Publicações de amigos"></button></div>
+          <div class="row"><div class="t"><b>Menções em servidores</b></div><button class="sw" role="switch" aria-checked="true" aria-label="Menções em servidores"></button></div>
+          <div class="row"><div class="t"><b>Sons de notificação</b></div><button class="sw" role="switch" aria-checked="true" aria-label="Sons de notificação"></button></div>
+        </section>
+      </div>
+
+      <!-- APARÊNCIA -->
+      <div class="wrap" data-p="aparencia" hidden>
+        <header><h2>Aparência</h2><p>Ajuste o visual do app. A cor de destaque muda na hora.</p></header>
+        <section class="card">
+          <div class="row"><div class="t"><b>Cor de destaque</b><small>Usada em botões, links e itens ativos.</small></div><div class="swatches" id="swatches"></div></div>
+          <div class="row"><div class="t"><b>Modo compacto</b><small>Reduz o espaçamento entre mensagens.</small></div><button class="sw" role="switch" aria-checked="false" aria-label="Modo compacto"></button></div>
+          <div class="row"><div class="t"><b>Reduzir animações</b></div><button class="sw" role="switch" aria-checked="false" aria-label="Reduzir animações"></button></div>
+        </section>
+      </div>
+
+      <!-- VOZ -->
+      <div class="wrap" data-p="voz" hidden>
+        <header><h2>Voz, vídeo e áudio</h2><p>Escolha seus dispositivos.</p></header>
+        <section class="card">
+          <div class="row"><div class="t"><b>Microfone</b></div><select class="in"><option>Padrão do sistema</option></select></div>
+          <div class="row"><div class="t"><b>Fones de ouvido</b></div><select class="in"><option>Padrão do sistema</option></select></div>
+          <div class="row"><div class="t"><b>Câmera</b></div><select class="in"><option>Padrão do sistema</option></select></div>
+          <div class="row"><div class="t"><b>Volume de entrada</b></div><input type="range" min="0" max="100" value="80" aria-label="Volume de entrada"></div>
+          <div class="row"><div class="t"><b>Supressão de ruído</b><small>Reduz sons de fundo no microfone.</small></div><button class="sw" role="switch" aria-checked="true" aria-label="Supressão de ruído"></button></div>
+        </section>
+      </div>
+
+      <!-- CONEXÕES -->
+      <div class="wrap" data-p="conexoes" hidden>
+        <header><h2>Conexões</h2><p>Conecte outras contas ao seu perfil.</p></header>
+        <section class="card" id="conns"></section>
+      </div>
+
+      <!-- AVANÇADO -->
+      <div class="wrap" data-p="avancado" hidden>
+        <header><h2>Avançado</h2><p>Opções para quem desenvolve e testa.</p></header>
+        <section class="card">
+          <div class="row"><div class="t"><b>Modo desenvolvedor</b><small>Mostra IDs ao copiar usuários e servidores.</small></div><button class="sw" role="switch" aria-checked="false" aria-label="Modo desenvolvedor"></button></div>
+          <div class="row"><div class="t"><b>Aceleração de hardware</b></div><button class="sw" role="switch" aria-checked="true" aria-label="Aceleração de hardware"></button></div>
+          <div class="row"><div class="t"><b>Limpar cache local</b><small>Remove arquivos temporários do app.</small></div><button class="btn flat">Limpar</button></div>
+        </section>
+      </div>
+    </main>
+
+    <aside class="prev" id="prev" aria-label="Pré-visualização do perfil">
+      <h4>Pré-visualização do perfil <span>Ao vivo</span></h4>
+      <div class="pc">
+        <div class="ban" id="p-ban"><div class="av" id="p-av">C</div></div>
+        <div class="in2">
+          <b><span id="p-name">Continha</span><svg class="i"><use href="#check"/></svg></b>
+          <span class="u">@contatestel</span>
+          <p id="p-bio">Apenas isso mesmo</p>
+          <div class="chips" id="p-tags"></div>
+        </div>
+        <div class="stats"><div><b>2</b><small>Amigos</small></div><div><b>1</b><small>Servidores</small></div><div><b>3</b><small>Posts</small></div></div>
+      </div>
+    </aside>
+  </div>
+</div>
+
+<div class="save" id="save" hidden role="status"><span>Você tem alterações não salvas.</span><button class="link" id="reset">Descartar</button><button class="btn" id="commit">Salvar alterações</button></div>
+
+<script>
+  const $ = id => document.getElementById(id);
+  const xIcon = '<svg class="i"><use href="#x"/></svg>';
+
+  /* ---------- Navegação ---------- */
+  const navs = document.querySelectorAll('.nv[data-s]');
+  function go(s) {
+    navs.forEach(n => n.setAttribute('aria-current', n.dataset.s === s));
+    document.querySelectorAll('.wrap').forEach(w => w.hidden = w.dataset.p !== s);
+    $('prev').hidden = s !== 'perfil'; $('body').classList.toggle('nopreview', s !== 'perfil');
+    $('content').scrollTop = 0;
+  }
+  navs.forEach(n => n.addEventListener('click', () => go(n.dataset.s)));
+  $('close').addEventListener('click', () => history.length > 1 ? history.back() : null); // TODO: voltar para a tela anterior
+  document.addEventListener('keydown', e => { if (e.key === 'Escape' && !e.target.closest('input,textarea,select')) $('close').click(); });
+  $('logout').addEventListener('click', () => {}); // TODO: encerrar sessão
+
+  /* ---------- Perfil (com prévia e barra de alterações) ---------- */
+  const themes = [
+    { n: 'Alura Forest', c: 'linear-gradient(135deg,#0b3d24,#1fae63 60%,#0a1f15)' },
+    { n: 'Cyber Synth',  c: 'linear-gradient(135deg,#2b0f4d,#d1359b 55%,#18255e)' },
+    { n: 'Deep Space',   c: 'radial-gradient(circle at 70% 30%,#2a2f6e,#0a0b1c 70%)' },
+    { n: 'Dark Aurora',  c: 'linear-gradient(135deg,#071a1f,#17a398 50%,#4b2a85)' }
+  ];
+  const saved = { name: 'Continha', bio: 'Apenas isso mesmo', tags: ['Programador','Gamer','Sempre aprendendo','Músico','Streamer'], theme: 0, banImg: '', avImg: '' };
+  let st = JSON.parse(JSON.stringify(saved));
+
+  function paint() {
+    const bg = st.banImg ? 'url(' + st.banImg + ')' : themes[st.theme].c;
+    ['ban', 'p-ban'].forEach(id => $(id).style.backgroundImage = bg);
+    ['av', 'p-av'].forEach(id => { const el = $(id); el.style.backgroundImage = st.avImg ? 'url(' + st.avImg + ')' : ''; el.textContent = st.avImg ? '' : (st.name[0] || 'C').toUpperCase(); });
+    $('p-name').textContent = st.name || 'Sem nome'; $('p-bio').textContent = st.bio;
+    $('bio-cnt').textContent = st.bio.length + '/140';
+    document.querySelectorAll('.theme').forEach((t, i) => t.setAttribute('aria-pressed', !st.banImg && i === st.theme));
+    ['tags', 'p-tags'].forEach(id => { const box = $(id); box.innerHTML = '';
+      st.tags.forEach((t, i) => { const c = document.createElement('span'); c.className = 'chip'; c.append(t);
+        if (id === 'tags') { const b = document.createElement('button'); b.innerHTML = xIcon; b.setAttribute('aria-label', 'Remover ' + t); b.onclick = () => { st.tags.splice(i, 1); change(); }; c.appendChild(b); } else c.style.padding = '0 10px';
+        box.appendChild(c); });
+      if (id === 'tags') { const a = document.createElement('input'); a.className = 'addchip'; a.placeholder = '+ Adicionar'; a.maxLength = 24;
+        a.onkeydown = e => { if (e.key === 'Enter' && a.value.trim() && st.tags.length < 8) { e.preventDefault(); st.tags.push(a.value.trim()); change(); } };
+        box.appendChild(a); } });
+  }
+  const dirty = () => JSON.stringify(st) !== JSON.stringify(saved);
+  function change() { paint(); $('save').hidden = !dirty(); }
+
+  themes.forEach((t, i) => { const b = document.createElement('button'); b.className = 'theme'; b.style.backgroundImage = t.c; b.textContent = t.n;
+    b.onclick = () => { st.theme = i; st.banImg = ''; change(); }; $('themes').appendChild(b); });
+  $('f-name').addEventListener('input', e => { st.name = e.target.value; change(); });
+  $('f-bio').addEventListener('input', e => { st.bio = e.target.value; change(); });
+  $('up-ban').onclick = () => $('file-ban').click(); $('up-av').onclick = () => $('file-av').click();
+  $('file-ban').onchange = e => { if (e.target.files[0]) { st.banImg = URL.createObjectURL(e.target.files[0]); change(); } };
+  $('file-av').onchange = e => { if (e.target.files[0]) { st.avImg = URL.createObjectURL(e.target.files[0]); change(); } };
+  $('reset').onclick = () => { st = JSON.parse(JSON.stringify(saved)); $('f-name').value = st.name; $('f-bio').value = st.bio; change(); };
+  $('commit').onclick = () => {
+    Object.assign(saved, JSON.parse(JSON.stringify(st))); // TODO: enviar ao backend (imagens via upload)
+    change(); const t = document.createElement('div'); t.className = 'toast'; t.setAttribute('role', 'status'); t.textContent = 'Alterações salvas';
+    document.body.appendChild(t); setTimeout(() => t.remove(), 2000);
+  };
+  paint();
+
+  /* ---------- Toggles ---------- */
+  document.querySelectorAll('.sw').forEach(s => s.addEventListener('click', () => s.setAttribute('aria-checked', s.getAttribute('aria-checked') !== 'true')));
+
+  /* ---------- Cor de destaque ---------- */
+  const colors = ['#2dff7a', '#38bdf8', '#a78bfa', '#f472b6', '#fbbf24'];
+  colors.forEach((c, i) => { const b = document.createElement('button'); b.className = 'swatch'; b.style.background = c; b.style.color = c; b.setAttribute('aria-label', 'Cor ' + (i + 1)); b.setAttribute('aria-pressed', i === 0);
+    b.onclick = () => { document.documentElement.style.setProperty('--accent', c);
+      const n = parseInt(c.slice(1), 16); document.documentElement.style.setProperty('--accent-soft', 'rgba(' + (n >> 16) + ',' + ((n >> 8) & 255) + ',' + (n & 255) + ',.14)');
+      document.querySelectorAll('.swatch').forEach(x => x.setAttribute('aria-pressed', x === b)); };
+    $('swatches').appendChild(b); });
+
+  /* ---------- Conexões ---------- */
+  const conns = [ { n: 'Spotify', d: 'Mostre o que está ouvindo no seu perfil.', on: false, i: 'S' }, { n: 'Google', d: 'Entre mais rápido com sua conta Google.', on: true, i: 'G' }, { n: 'GitHub', d: 'Exiba seus projetos e entre com o GitHub.', on: false, i: 'GH' } ];
+  function renderConns() { $('conns').innerHTML = ''; conns.forEach(c => { const r = document.createElement('div'); r.className = 'row';
+    r.innerHTML = '<span class="ic"></span><div class="t"><b></b><small></small></div><button class="btn"></button>';
+    r.querySelector('.ic').textContent = c.i; r.querySelector('b').textContent = c.n; r.querySelector('small').textContent = c.on ? 'Conectado' : c.d;
+    const b = r.querySelector('button'); b.textContent = c.on ? 'Desconectar' : 'Conectar'; if (c.on) b.className = 'btn flat';
+    b.onclick = () => { c.on = !c.on; renderConns(); }; // TODO: fluxo OAuth
+    $('conns').appendChild(r); }); }
+  renderConns();
+</script>
+</body>
+</html>

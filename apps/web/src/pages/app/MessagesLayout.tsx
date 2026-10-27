@@ -1,9 +1,10 @@
 import { useState, useEffect } from "react"
 import { useNavigate, useOutletContext, Outlet, useLocation, useParams } from "react-router-dom"
-import { MessageSquare, Search, Plus, Image as ImageIcon } from "lucide-react"
+import { MessageSquare, Search, Plus, Image as ImageIcon, ChevronLeft, ChevronRight } from "lucide-react"
 import { Avatar, AvatarFallback } from "@alura/ui"
 import { supabase } from "../../lib/supabase"
 import { useNotification } from "../../contexts/NotificationContext"
+import { usePresence } from "../../contexts/PresenceContext"
 
 interface DMChannel {
   id: string
@@ -15,11 +16,13 @@ interface DMChannel {
 
 export function MessagesLayout() {
   const { user } = useOutletContext<{ user: any }>()
+  const { getUserStatus, getStatusColor, getStatusBadgeText } = usePresence()
   const navigate = useNavigate()
   const location = useLocation()
   const { otherUserId: activeUserId } = useParams<{ otherUserId: string }>()
   const [channels, setChannels] = useState<DMChannel[]>([])
   const [loading, setLoading] = useState(true)
+  const [isConversationsCollapsed, setIsConversationsCollapsed] = useState(false)
   const { unreadDMCount, refreshUnreadDMs } = useNotification()
 
   useEffect(() => {
@@ -98,14 +101,34 @@ export function MessagesLayout() {
     <div className="flex h-full w-full bg-alura-background overflow-hidden text-alura-textPrimary">
       
       {/* 2. Conversation Sidebar (List of channels) */}
-      <div className="w-[330px] border-r border-alura-border bg-alura-surface1/30 flex flex-col shrink-0 overflow-hidden relative z-10">
+      <aside
+        className={`border-r border-alura-border bg-alura-surface1/30 flex flex-col shrink-0 overflow-hidden relative z-10 transition-all duration-300 ease-in-out ${
+          isConversationsCollapsed
+            ? 'w-0 opacity-0 border-none pointer-events-none'
+            : 'w-[330px] opacity-100'
+        }`}
+      >
         
         {/* Header da Sidebar */}
-        <div className="h-[60px] flex items-center justify-between px-5 shrink-0">
+        <div className="h-[60px] flex items-center justify-between px-5 shrink-0 border-b border-alura-border/30">
           <h2 className="font-bold text-[18px]">Mensagens</h2>
-          <button className="w-8 h-8 flex items-center justify-center rounded-md text-alura-textMuted hover:bg-alura-surface2 hover:text-alura-textPrimary transition-colors">
-            <Plus className="w-5 h-5" />
-          </button>
+          <div className="flex items-center gap-1.5">
+            <button
+              type="button"
+              onClick={() => setIsConversationsCollapsed(true)}
+              className="w-8 h-8 flex items-center justify-center rounded-lg text-alura-textMuted hover:bg-alura-surface2 hover:text-alura-textPrimary transition-all border border-transparent hover:border-alura-border/60 cursor-pointer"
+              title="Recolher conversas"
+            >
+              <ChevronLeft className="w-4 h-4" />
+            </button>
+            <button
+              type="button"
+              className="w-8 h-8 flex items-center justify-center rounded-lg text-alura-textMuted hover:bg-alura-surface2 hover:text-alura-textPrimary transition-colors cursor-pointer"
+              title="Nova conversa"
+            >
+              <Plus className="w-5 h-5" />
+            </button>
+          </div>
         </div>
 
         {/* Busca */}
@@ -167,8 +190,16 @@ export function MessagesLayout() {
                         {initials}
                       </AvatarFallback>
                     )}
-                    {/* Fake Status indicator (Online) for design matching - ideally real data */}
-                    <div className="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 bg-alura-accent border-2 border-alura-surface1 rounded-full z-10" />
+                    {(() => {
+                      const userStatus = getUserStatus(profile)
+                      const colorClass = getStatusColor(userStatus)
+                      return (
+                        <div 
+                          className={`absolute -bottom-0.5 -right-0.5 w-3 h-3 ${colorClass} border-2 border-alura-surface1 rounded-full z-10`} 
+                          title={getStatusBadgeText(userStatus)}
+                        />
+                      )
+                    })()}
                   </Avatar>
                   <div className="flex flex-col flex-1 overflow-hidden justify-center leading-tight">
                     <div className="flex items-center justify-between">
@@ -206,10 +237,22 @@ export function MessagesLayout() {
             })
           )}
         </div>
-      </div>
+      </aside>
 
       {/* 3 & 4. Main Conversation & Context Panel */}
-      <div className="flex-1 flex overflow-hidden">
+      <div className="flex-1 flex overflow-hidden relative">
+        {/* Botão com seta para reabrir a lista de conversas quando recolhida */}
+        {isConversationsCollapsed && (
+          <button
+            type="button"
+            onClick={() => setIsConversationsCollapsed(false)}
+            className="absolute left-0 top-3 z-30 px-2.5 py-1.5 rounded-r-xl bg-alura-surface2/95 hover:bg-alura-surface3 border-y border-r border-alura-border hover:border-alura-accent text-alura-textMuted hover:text-alura-accent flex items-center gap-1.5 shadow-xl backdrop-blur-md transition-all cursor-pointer group text-xs font-bold"
+            title="Expandir conversas"
+          >
+            <ChevronRight size={14} className="group-hover:translate-x-0.5 transition-transform" />
+            <span className="text-[11px]">Conversas</span>
+          </button>
+        )}
         <Outlet context={{ user }} />
       </div>
 

@@ -1,6 +1,7 @@
 import { useState } from "react"
 import { motion, AnimatePresence } from "framer-motion"
-import { Check } from "lucide-react"
+import { Check, LogOut } from "lucide-react"
+import { supabase } from "../../lib/supabase"
 
 // Componentes das Etapas
 import { StepBasicInfo } from "./steps/StepBasicInfo"
@@ -52,6 +53,12 @@ export function OnboardingWizard({ user, profile, onComplete }: OnboardingWizard
   const handleNext = () => setCurrentStep(prev => Math.min(prev + 1, 6))
   const handleBack = () => setCurrentStep(prev => Math.max(prev - 1, 1))
 
+  const handleSignOut = async () => {
+    await supabase.auth.signOut()
+    window.location.hash = "/login"
+    window.location.reload()
+  }
+
   const updateFormData = (data: Partial<typeof formData>) => {
     setFormData(prev => ({ ...prev, ...data }))
   }
@@ -96,6 +103,18 @@ export function OnboardingWizard({ user, profile, onComplete }: OnboardingWizard
             )
           })}
         </div>
+
+        {/* Rodapé da Sidebar com Botão de Sair */}
+        <div className="mt-auto relative z-10 pt-6 border-t border-alura-border/60">
+          <button
+            type="button"
+            onClick={handleSignOut}
+            className="flex items-center space-x-2 text-alura-textMuted hover:text-red-400 text-xs font-medium transition-colors cursor-pointer"
+          >
+            <LogOut className="w-4 h-4" />
+            <span>Sair / Ir para o Login</span>
+          </button>
+        </div>
       </div>
 
       {/* Conteúdo Principal */}
@@ -120,7 +139,7 @@ export function OnboardingWizard({ user, profile, onComplete }: OnboardingWizard
                 transition={{ duration: 0.2 }}
                 className="w-full h-full flex flex-col"
               >
-                {currentStep === 1 && <StepBasicInfo data={formData} updateData={updateFormData} onNext={handleNext} onBack={handleBack} />}
+                {currentStep === 1 && <StepBasicInfo data={formData} updateData={updateFormData} onNext={handleNext} onBack={handleBack} onSignOut={handleSignOut} />}
                 {currentStep === 2 && <StepGames data={formData} updateData={updateFormData} onNext={handleNext} onBack={handleBack} />}
                 {currentStep === 3 && <StepHobbies data={formData} updateData={updateFormData} onNext={handleNext} onBack={handleBack} />}
                 {currentStep === 4 && <StepProfile data={formData} updateData={updateFormData} onNext={handleNext} onBack={handleBack} />}

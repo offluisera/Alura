@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from "react"
 import { useParams, useNavigate } from "react-router-dom"
 import { useOutletContext } from "react-router-dom"
-import { Send, Phone, PhoneOff, PhoneCall, PhoneMissed, Video, MoreHorizontal, Image as ImageIcon, Smile, Plus, Users, X, AlertCircle, Moon, Check, ShieldAlert, Eye, EyeOff, Ban, UserMinus, Calendar, Link2, Gamepad2, Activity, Link as LinkIcon, ExternalLink, MessageSquare as DiscordIcon, Github, Twitch, Terminal, Code2, PenTool, MonitorPlay, Music, Tag, Download } from "lucide-react"
+import { Send, Phone, PhoneOff, PhoneCall, PhoneMissed, Video, MoreHorizontal, Image as ImageIcon, Smile, Plus, Users, X, AlertCircle, Moon, Check, ShieldAlert, Eye, EyeOff, Ban, UserMinus, Calendar, Link2, Gamepad2, Activity, Link as LinkIcon, ExternalLink, MessageSquare as DiscordIcon, Github, Twitch, Terminal, Code2, PenTool, MonitorPlay, Music, Tag, Download, ChevronLeft, ChevronRight, User as UserIcon } from "lucide-react"
 import EmojiPicker, { Theme } from "emoji-picker-react"
 import { Avatar, AvatarFallback } from "@alura/ui"
 import { supabase } from "../../lib/supabase"
@@ -16,7 +16,8 @@ import { compressImageToWebp, downloadImageAsPng } from "../../lib/utils/imageOp
 import { UserProfileHoverCard } from "../../components/shared/UserProfileHoverCard"
 import { getActiveConnections, ConnectionIcon } from "../../components/shared/ConnectionIcons"
 import { useCall } from "../../contexts/CallContext"
-import { CallOverlay } from "../../components/call/CallOverlay"
+import { ImageLightboxModal } from "../../components/common/ImageLightboxModal"
+import { MessageContextMenu } from "../../components/common/MessageContextMenu"
 import erroImage from "../../assets/erro.png"
 
 const TAG_TRANSLATIONS: Record<string, { label: string; icon: any }> = {
@@ -60,11 +61,13 @@ interface Message {
 }
 
 import { useNotification } from "../../contexts/NotificationContext"
+import { usePresence } from "../../contexts/PresenceContext"
 
 export function DirectMessage() {
   const { otherUserId } = useParams<{ otherUserId: string }>()
   const { user } = useOutletContext<{ user: any }>()
   const { refreshUnreadDMs, showToast, showConfirmModal } = useNotification()
+  const { getUserStatus } = usePresence()
   const navigate = useNavigate()
   
   const [messages, setMessages] = useState<Message[]>([])
@@ -72,6 +75,11 @@ export function DirectMessage() {
   const [friendProfile, setFriendProfile] = useState<any>(null)
   const [channelId, setChannelId] = useState<string | null>(null)
   
+  const effectiveFriendStatus = getUserStatus(friendProfile)
+  
+  // Painel lateral de perfil (inicia fechado conforme solicitado)
+  const [showProfilePanel, setShowProfilePanel] = useState(false)
+
   // Attachments & Emojis State
   const [attachments, setAttachments] = useState<File[]>([])
   const [showEmojiPicker, setShowEmojiPicker] = useState(false)
@@ -87,6 +95,86 @@ export function DirectMessage() {
   const [isFriend, setIsFriend] = useState(false)
   const [revealedMessages, setRevealedMessages] = useState<Record<string, boolean>>({})
   const [revealedMedia, setRevealedMedia] = useState<Record<string, boolean>>({})
+
+  // Chatbox, Lightbox e Menu de Contexto
+  const chatInputRef = useRef<HTMLTextAreaElement>(null)
+  const [lightboxImage, setLightboxImage] = useState<{ url: string; name?: string } | null>(null)
+  const [contextMenu, setContextMenu] = useState<{
+    isOpen: boolean
+    position: { x: number; y: number }
+    message: Message | null
+  }>({
+    isOpen: false,
+    position: { x: 0, y: 0 },
+    message: null,
+  })
+
+  // Auto-focus no chat ao mudar de conversa
+  useEffect(() => {
+    chatInputRef.current?.focus()
+  }, [otherUserId])
+
+  // Listener global de digitação: foca automaticamente na chatbox
+  useEffect(() => {
+    const handleGlobalKeyDown = (e: KeyboardEvent) => {
+      const activeEl = document.activeElement
+      const isEditing =
+        activeEl &&
+        (activeEl.tagName === 'INPUT' ||
+          activeEl.tagName === 'TEXTAREA' ||
+          (activeEl as HTMLElement).isContentEditable)
+      if (isEditing) return
+
+      if (e.ctrlKey || e.metaKey || e.altKey || e.key === 'Escape' || e.key === 'Tab') return
+
+      if (e.key.length === 1 && !lightboxImage && !contextMenu.isOpen) {
+        chatInputRef.current?.focus()
+      }
+    }
+
+    window.addEventListener('keydown', handleGlobalKeyDown)
+    return () => window.removeEventListener('keydown', handleGlobalKeyDown)
+  }, [lightboxImage, contextMenu.isOpen])
+
+  // Captura Ctrl+V (colar imagens da área de transferência)
+  const handlePaste = (e: React.ClipboardEvent) => {
+    const items = e.clipboardData?.items
+    if (!items) return
+
+    const imageFiles: File[] = []
+    for (let i = 0; i < items.length; i++) {
+      const item = items[i]
+      if (item.type.indexOf('image') !== -1) {
+        const file = item.getAsFile()
+        if (file) {
+          const renamed = new File([file], `imagem-colada-${Date.now()}.png`, { type: file.type })
+          imageFiles.push(renamed)
+        }
+      }
+    }
+
+    if (imageFiles.length > 0) {
+      e.preventDefault()
+      setAttachments((prev) => [...prev, ...imageFiles])
+      showToast({
+        type: 'info',
+        title: 'Imagem Colada',
+        message: `${imageFiles.length} imagem(ns) adicionada(s) aos anexos do chat.`,
+      })
+    }
+  }
+
+  // Deletar mensagem
+  const handleDeleteMessage = async (msgId: string) => {
+    try {
+      const { error } = await supabase.from('direct_messages').delete().eq('id', msgId)
+      if (error) throw error
+      setMessages((prev) => prev.filter((m) => m.id !== msgId))
+      showToast({ type: 'success', title: 'Mensagem Apagada', message: 'A mensagem foi excluída.' })
+    } catch (err: any) {
+      showToast({ type: 'error', title: 'Erro ao excluir', message: err.message })
+    }
+  }
 
   // ── WebRTC Call via CallContext Global ────────────────────────────────────
   const {
@@ -158,7 +246,18 @@ export function DirectMessage() {
         schema: 'public', 
         table: 'direct_messages',
         filter: `dm_channel_id=eq.${channelId}`
-      }, (payload) => {
+      }, async (payload) => {
+        const msg = payload.new as Message
+        if (msg.user_id !== user?.id) {
+          try {
+            await supabase.from('direct_messages')
+              .update({ is_read: true })
+              .eq('id', msg.id)
+            await refreshUnreadDMs()
+          } catch (e) {
+            console.error('Erro ao marcar DM como lida', e)
+          }
+        }
         setMessages(prev => {
           if (prev.some(m => m.id === payload.new.id)) return prev;
           return [...prev, payload.new as Message]
@@ -167,7 +266,7 @@ export function DirectMessage() {
       .subscribe()
 
     return () => { supabase.removeChannel(channel) }
-  }, [channelId])
+  }, [channelId, user?.id, refreshUnreadDMs])
 
   // Real-time listener for the friend's profile status
   useEffect(() => {
@@ -423,89 +522,56 @@ export function DirectMessage() {
   return (
     <div className="flex w-full h-full text-alura-textPrimary bg-alura-background relative">
 
-      {/* ── Overlay de Chamada (Persistente e com suporte a DND) ── */}
-      {(() => {
-        const isCallWithThisFriend =
-          remoteParticipant?.userId === otherUserId ||
-          callerProfile?.userId === otherUserId
-
-        // Se estiver em DND e o estado for 'ringing', a barra flutuante no rodapé assume
-        const shouldShowOverlay =
-          callState !== 'idle' &&
-          isCallWithThisFriend &&
-          !(callState === 'ringing' && isDnd)
-
-        if (!shouldShowOverlay) return null
-
-        return (
-          <CallOverlay
-            callState={callState}
-            callType={callType}
-            localStream={localStream}
-            remoteStream={remoteStream}
-            screenStream={screenStream}
-            isMuted={isMuted}
-            isDeafened={isDeafened}
-            isCameraOn={isCameraOn}
-            isSharingScreen={isSharingScreen}
-            isRemoteSharingScreen={isRemoteSharingScreen}
-            callDuration={callDuration}
-            remoteParticipant={remoteParticipant || callerProfile}
-            myName={user?.user_metadata?.username || user?.user_metadata?.full_name || 'Você'}
-            myAvatar={user?.user_metadata?.avatar_url}
-            noiseFilter={noiseFilter}
-            setNoiseFilter={setNoiseFilter}
-            hangUp={hangUp}
-            toggleMute={toggleMute}
-            toggleDeafen={toggleDeafen}
-            toggleCamera={toggleCamera}
-            startScreenShareWithSource={startScreenShareWithSource}
-            stopScreenShare={stopScreenShare}
-            acceptCall={acceptIncomingCall}
-            rejectCall={rejectIncomingCall}
-          />
-        )
-      })()}
-
       {/* Coluna 3: Chat Principal */}
-      <div className="flex-1 flex flex-col bg-alura-background border-r border-alura-border">
+      <div className="flex-1 flex flex-col bg-alura-background border-r border-alura-border min-w-0 overflow-hidden">
         
         {/* Header do Chat */}
-        <div className="h-[60px] border-b border-alura-border flex items-center justify-between px-6 shrink-0 z-10">
+        <div className="h-[60px] border-b border-alura-border flex items-center justify-between px-3 sm:px-6 shrink-0 z-10 gap-2 min-w-0">
           {friendProfile ? (
             <UserProfileHoverCard userId={friendProfile.id} profile={friendProfile} side="bottom">
-              <div className="flex items-center gap-3 cursor-pointer group/headerprofile">
-                <Avatar className="w-8 h-8 rounded-full">
+              <div className="flex items-center gap-2.5 sm:gap-3 cursor-pointer group/headerprofile min-w-0 flex-1 overflow-hidden">
+                <Avatar className="w-8 h-8 rounded-full shrink-0">
                   {friendProfile.avatar_url ? (
                     <img src={friendProfile.avatar_url} className="w-full h-full rounded-full object-cover" />
                   ) : (
                     <AvatarFallback className="bg-alura-surface2 text-xs font-bold">{initials}</AvatarFallback>
                   )}
                 </Avatar>
-                <div className="flex items-center gap-2">
-                  <span className="font-bold text-[15px] group-hover/headerprofile:underline">@{friendProfile.username || 'usuario'}</span>
-                  {(!friendProfile.status || friendProfile.status !== 'offline') && (
-                    <>
-                      <div className={`w-1.5 h-1.5 rounded-full ${friendProfile.status === 'dnd' ? 'bg-alura-danger' : friendProfile.status === 'idle' ? 'bg-[#F5A623]' : 'bg-alura-accent'}`} />
-                      <span className={`text-[12px] font-medium tracking-wide ${friendProfile.status === 'dnd' ? 'text-alura-danger' : friendProfile.status === 'idle' ? 'text-[#F5A623]' : 'text-alura-accent'}`}>
-                        {friendProfile.status === 'dnd' ? 'Não perturbe' : friendProfile.status === 'idle' ? 'Ausente' : 'Online'}
-                      </span>
-                    </>
-                  )}
+                <div className="flex items-center gap-1.5 sm:gap-2 min-w-0 truncate">
+                  <span className="font-bold text-[14px] sm:text-[15px] group-hover/headerprofile:underline truncate max-w-[120px] sm:max-w-[180px] md:max-w-xs">
+                    @{friendProfile.username || 'usuario'}
+                  </span>
+                  <div className={`w-1.5 h-1.5 rounded-full shrink-0 ${
+                    effectiveFriendStatus === 'dnd' ? 'bg-alura-danger' :
+                    effectiveFriendStatus === 'idle' ? 'bg-[#F5A623]' :
+                    effectiveFriendStatus === 'online' ? 'bg-alura-accent' :
+                    'bg-alura-textDisabled'
+                  }`} />
+                  <span className={`text-[11px] sm:text-[12px] font-medium tracking-wide truncate hidden lg:inline ${
+                    effectiveFriendStatus === 'dnd' ? 'text-alura-danger' :
+                    effectiveFriendStatus === 'idle' ? 'text-[#F5A623]' :
+                    effectiveFriendStatus === 'online' ? 'text-alura-accent' :
+                    'text-alura-textDisabled'
+                  }`}>
+                    {effectiveFriendStatus === 'dnd' ? 'Não perturbe' :
+                     effectiveFriendStatus === 'idle' ? 'Ausente' :
+                     effectiveFriendStatus === 'online' ? 'Online' :
+                     'Offline'}
+                  </span>
                 </div>
               </div>
             </UserProfileHoverCard>
           ) : (
-            <div className="animate-pulse flex items-center gap-3">
-              <div className="w-8 h-8 rounded-full bg-alura-surface2"></div>
+            <div className="animate-pulse flex items-center gap-3 min-w-0 flex-1">
+              <div className="w-8 h-8 rounded-full bg-alura-surface2 shrink-0"></div>
               <div className="w-24 h-4 rounded bg-alura-surface2"></div>
             </div>
           )}
 
-          {/* Ações (Phone, Video, More) */}
-          <div className="flex items-center gap-4 text-alura-textMuted">
+          {/* Ações (Phone, Video, More, Perfil) */}
+          <div className="flex items-center gap-1.5 sm:gap-2 text-alura-textMuted shrink-0">
             <button
-              className={`w-8 h-8 flex items-center justify-center hover:bg-alura-surface2 hover:text-alura-accent rounded-full transition-colors ${callState !== 'idle' && (remoteParticipant?.userId === otherUserId || callerProfile?.userId === otherUserId) ? 'text-alura-accent' : ''}`}
+              className={`w-8 h-8 flex items-center justify-center hover:bg-alura-surface2 hover:text-alura-accent rounded-full transition-colors shrink-0 ${callState !== 'idle' && (remoteParticipant?.userId === otherUserId || callerProfile?.userId === otherUserId) ? 'text-alura-accent' : ''}`}
               onClick={() => {
                 if (callState !== 'idle') return
                 startCallWithProfile(
@@ -524,7 +590,7 @@ export function DirectMessage() {
               <Phone className="w-4 h-4" />
             </button>
             <button
-              className={`w-8 h-8 flex items-center justify-center hover:bg-alura-surface2 hover:text-alura-accent rounded-full transition-colors ${callState !== 'idle' && (remoteParticipant?.userId === otherUserId || callerProfile?.userId === otherUserId) ? 'text-alura-accent' : ''}`}
+              className={`w-8 h-8 flex items-center justify-center hover:bg-alura-surface2 hover:text-alura-accent rounded-full transition-colors shrink-0 ${callState !== 'idle' && (remoteParticipant?.userId === otherUserId || callerProfile?.userId === otherUserId) ? 'text-alura-accent' : ''}`}
               onClick={() => {
                 if (callState !== 'idle') return
                 startCallWithProfile(
@@ -542,8 +608,24 @@ export function DirectMessage() {
             >
               <Video className="w-5 h-5" />
             </button>
-            <button className="w-8 h-8 flex items-center justify-center hover:bg-alura-surface2 hover:text-alura-textPrimary rounded-full transition-colors">
+            <button className="w-8 h-8 flex items-center justify-center hover:bg-alura-surface2 hover:text-alura-textPrimary rounded-full transition-colors shrink-0">
               <MoreHorizontal className="w-5 h-5" />
+            </button>
+
+            {/* Botão de alternar Painel de Perfil com setas */}
+            <button
+              type="button"
+              onClick={() => setShowProfilePanel((prev) => !prev)}
+              className={`h-8 px-2 sm:px-2.5 rounded-xl border text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer whitespace-nowrap shrink-0 ${
+                showProfilePanel
+                  ? 'bg-alura-selected text-alura-accent border-alura-borderStrong shadow-xs'
+                  : 'hover:bg-alura-surface2 hover:text-alura-textPrimary border-alura-border/40 text-alura-textMuted'
+              }`}
+              title={showProfilePanel ? 'Recolher perfil do usuário' : 'Exibir perfil do usuário'}
+            >
+              <UserIcon className="w-3.5 h-3.5 shrink-0" />
+              <span className="hidden md:inline whitespace-nowrap">Perfil</span>
+              {showProfilePanel ? <ChevronRight className="w-3.5 h-3.5 shrink-0" /> : <ChevronLeft className="w-3.5 h-3.5 shrink-0" />}
             </button>
           </div>
         </div>
@@ -553,7 +635,18 @@ export function DirectMessage() {
           {messages.map(msg => {
             const isMe = msg.user_id === user?.id
             return (
-              <div key={msg.id} className={`flex w-full ${isMe ? 'justify-end' : 'justify-start'}`}>
+              <div 
+                key={msg.id} 
+                onContextMenu={(e) => {
+                  e.preventDefault()
+                  setContextMenu({
+                    isOpen: true,
+                    position: { x: e.clientX, y: e.clientY },
+                    message: msg
+                  })
+                }}
+                className={`flex w-full group/msg ${isMe ? 'justify-end' : 'justify-start'}`}
+              >
                 <div className={`flex gap-3 max-w-[85%] ${isMe ? 'flex-row-reverse' : 'flex-row'}`}>
                   
                   {/* Avatar lateral (somente se não for eu) */}
@@ -594,7 +687,12 @@ export function DirectMessage() {
                               <img 
                                 src={att.url} 
                                 alt={att.name} 
-                                className={`max-w-[300px] max-h-[300px] object-cover transition-all ${shouldBlurMedia ? 'blur-xl scale-105 select-none pointer-events-none' : ''}`} 
+                                onClick={() => {
+                                  if (!shouldBlurMedia) {
+                                    setLightboxImage({ url: att.url, name: att.name || 'Imagem' })
+                                  }
+                                }}
+                                className={`max-w-[300px] max-h-[300px] object-cover transition-all cursor-pointer hover:brightness-105 active:scale-[0.99] ${shouldBlurMedia ? 'blur-xl scale-105 select-none pointer-events-none' : ''}`} 
                               />
                               {!shouldBlurMedia && (
                                 <button
@@ -671,11 +769,13 @@ export function DirectMessage() {
                         msg.content.startsWith('📞') || 
                         msg.content.includes('Chamada iniciada') || 
                         msg.content.includes('Chamada encerrada') || 
-                        msg.content.includes('Você perdeu uma ligação')
+                        msg.content.includes('Você perdeu uma ligação') ||
+                        msg.content.includes('Chamada recusada')
 
                       if (isCallMessage) {
                         const isStarted = msg.content.includes('iniciada')
                         const isMissed = msg.content.includes('perdeu')
+                        const isRejected = msg.content.includes('recusada')
                         const cleanText = msg.content
                           .replace(/^\[call:[^\]]+\]\s*/, '')
                           .replace(/^📞\s*/, '')
@@ -684,13 +784,13 @@ export function DirectMessage() {
                         return (
                           <div className="flex items-center gap-3 px-3.5 py-2.5 rounded-xl bg-alura-surface1 border border-alura-border/70 text-xs font-semibold shadow-sm w-fit max-w-[380px] my-1">
                             <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${
-                              isMissed 
+                              isMissed || isRejected
                                 ? 'bg-red-500/15 text-red-400 border border-red-500/30 shadow-sm' 
                                 : isStarted 
                                   ? 'bg-alura-accent/15 text-alura-accent border border-alura-accent/30 shadow-sm' 
                                   : 'bg-alura-surface2 text-alura-textSecondary border border-alura-border'
                             }`}>
-                              {isMissed ? (
+                              {isMissed || isRejected ? (
                                 <PhoneMissed size={16} className="text-red-400" />
                               ) : isStarted ? (
                                 <PhoneCall size={16} className="text-alura-accent" />
@@ -699,7 +799,7 @@ export function DirectMessage() {
                               )}
                             </div>
                             <span className={`text-[13px] font-medium leading-tight ${
-                              isMissed ? 'text-red-400 font-semibold' : isStarted ? 'text-alura-textPrimary font-semibold' : 'text-alura-textSecondary'
+                              isMissed || isRejected ? 'text-red-400 font-semibold' : isStarted ? 'text-alura-textPrimary font-semibold' : 'text-alura-textSecondary'
                             }`}>
                               {cleanText}
                             </span>
@@ -709,7 +809,7 @@ export function DirectMessage() {
 
                       return (
                         <div 
-                          className={`px-4 py-2.5 text-[14px] leading-relaxed shadow-sm
+                          className={`px-4 py-2.5 text-[14px] leading-relaxed shadow-sm whitespace-pre-wrap break-words
                             ${isMe 
                               ? 'bg-alura-accent text-[#0B0D0F] font-medium rounded-[12px] rounded-tr-sm' 
                               : 'bg-alura-surface2 text-alura-textPrimary border border-alura-border rounded-[12px] rounded-tl-sm'
@@ -775,7 +875,7 @@ export function DirectMessage() {
                 </div>
               )}
 
-              <form onSubmit={handleSendMessage} className="relative flex items-center bg-alura-surface1 border border-alura-border rounded-[12px] overflow-visible focus-within:border-alura-borderStrong transition-colors shadow-sm">
+              <form onSubmit={handleSendMessage} onPaste={handlePaste} className="relative flex items-center bg-alura-surface1 border border-alura-border rounded-[14px] px-2 py-1.5 focus-within:border-alura-borderStrong transition-colors shadow-sm">
                 
                 {/* Inputs escondidos */}
                 <input type="file" multiple accept=".pdf,.doc,.docx,.rar,.zip,.txt,.xlsx,.csv" className="hidden" ref={fileInputRef} onChange={(e) => handleFileSelect(e)} />
@@ -783,37 +883,60 @@ export function DirectMessage() {
 
                 {/* Ações da esquerda */}
                 <div className="relative group/file flex items-center">
-                  <button type="button" onClick={() => fileInputRef.current?.click()} className="pl-4 pr-2 py-3 text-alura-textMuted hover:text-alura-textPrimary transition-colors">
+                  <button type="button" onClick={() => fileInputRef.current?.click()} className="p-2 text-alura-textMuted hover:text-alura-textPrimary transition-colors" title="Adicionar documento">
                     <Plus className="w-5 h-5 hover:scale-110 transition-transform" />
                   </button>
                   <div className="absolute bottom-full left-2 mb-2 hidden group-hover/file:block bg-alura-surface2 border border-alura-border text-alura-textSecondary text-[11px] px-2 py-1 rounded shadow-lg whitespace-nowrap z-50">Documentos (Máx 25MB)</div>
                 </div>
                 
                 <div className="relative group/media flex items-center">
-                  <button type="button" onClick={() => imageInputRef.current?.click()} className="px-2 py-3 text-alura-textMuted hover:text-alura-textPrimary transition-colors">
+                  <button type="button" onClick={() => imageInputRef.current?.click()} className="p-2 text-alura-textMuted hover:text-alura-textPrimary transition-colors" title="Enviar mídia">
                     <ImageIcon className="w-5 h-5 hover:scale-110 transition-transform" />
                   </button>
                   <div className="absolute bottom-full left-0 mb-2 hidden group-hover/media:block bg-alura-surface2 border border-alura-border text-alura-textSecondary text-[11px] px-2 py-1 rounded shadow-lg whitespace-nowrap z-50">Mídia (Máx 25MB)</div>
                 </div>
 
-                {/* Input textual */}
-                <input 
-                  type="text" 
+                {/* Textarea com auto-expand limpo e sem scrollbar cortada */}
+                <textarea 
+                  ref={chatInputRef}
+                  rows={1}
                   value={newMessage}
-                  onChange={(e) => setNewMessage(e.target.value)}
-                  placeholder={isUploading ? `Enviando...` : `Digite sua mensagem...`}
-                  className="flex-1 bg-transparent border-none py-3 px-2 text-[14px] text-alura-textPrimary placeholder:text-alura-textDisabled outline-none disabled:opacity-50"
+                  onChange={(e) => {
+                    setNewMessage(e.target.value)
+                    e.target.style.height = 'auto'
+                    const nextH = Math.min(Math.max(e.target.scrollHeight, 24), 140)
+                    e.target.style.height = `${nextH}px`
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      if (e.shiftKey) {
+                        // Shift + Enter: insere quebra de linha normal
+                        return
+                      } else {
+                        // Enter comum: envia mensagem
+                        e.preventDefault()
+                        handleSendMessage(e)
+                        if (chatInputRef.current) {
+                          chatInputRef.current.style.height = 'auto'
+                          chatInputRef.current.focus()
+                        }
+                      }
+                    }
+                  }}
+                  onPaste={handlePaste}
+                  placeholder={isUploading ? `Enviando...` : `Conversar com @${friendProfile?.username || 'amigo'}...`}
+                  className="flex-1 bg-transparent border-none py-2 px-2 text-[14px] text-alura-textPrimary placeholder:text-alura-textDisabled outline-none disabled:opacity-50 resize-none max-h-32 custom-scrollbar leading-relaxed"
                   disabled={isUploading}
                 />
                 
                 {/* Ações da direita */}
-                <button type="button" onClick={() => setShowEmojiPicker(!showEmojiPicker)} className={`px-2 py-3 transition-all ${showEmojiPicker ? 'text-alura-accent scale-110' : 'text-alura-textMuted hover:text-alura-textPrimary hover:scale-110'}`}>
+                <button type="button" onClick={() => setShowEmojiPicker(!showEmojiPicker)} className={`p-2 transition-all ${showEmojiPicker ? 'text-alura-accent scale-110' : 'text-alura-textMuted hover:text-alura-textPrimary hover:scale-110'}`} title="Inserir emoji">
                   <Smile className="w-5 h-5" />
                 </button>
                 <button 
                   type="submit"
                   disabled={(!newMessage.trim() && attachments.length === 0) || isUploading}
-                  className="mr-2 ml-1 w-8 h-8 flex items-center justify-center rounded-lg bg-alura-accent text-[#0B0D0F] disabled:opacity-50 disabled:bg-alura-surface3 disabled:text-alura-textDisabled transition-all hover:bg-alura-accentBright cursor-pointer disabled:cursor-not-allowed"
+                  className="mr-1 ml-1 w-8 h-8 flex items-center justify-center rounded-lg bg-alura-accent text-[#0B0D0F] disabled:opacity-50 disabled:bg-alura-surface3 disabled:text-alura-textDisabled transition-all hover:bg-alura-accentBright cursor-pointer disabled:cursor-not-allowed"
                 >
                   {isUploading ? <div className="w-4 h-4 border-2 border-[#0B0D0F] border-t-transparent rounded-full animate-spin" /> : <Send className="w-4 h-4" />}
                 </button>
@@ -824,7 +947,28 @@ export function DirectMessage() {
       </div>
 
       {/* Coluna 4: Context / Profile Panel */}
-      <div className="w-[320px] bg-alura-surface1 flex flex-col overflow-y-auto custom-scrollbar shrink-0 border-l border-alura-border">
+      <aside
+        className={`bg-alura-surface1 flex flex-col shrink-0 border-l border-alura-border relative transition-all duration-300 ease-in-out ${
+          showProfilePanel
+            ? 'w-[320px] opacity-100 overflow-y-auto custom-scrollbar'
+            : 'w-0 opacity-0 overflow-hidden border-none pointer-events-none'
+        }`}
+      >
+        {/* Barra superior de controle do perfil com botão de recolher com seta */}
+        <div className="h-11 px-4 flex items-center justify-between border-b border-alura-border/50 shrink-0 bg-alura-surface2/40">
+          <span className="text-[11px] font-bold text-alura-textMuted uppercase tracking-wider flex items-center gap-1.5">
+            <UserIcon size={13} className="text-alura-accent" /> Perfil do Usuário
+          </span>
+          <button
+            type="button"
+            onClick={() => setShowProfilePanel(false)}
+            className="w-7 h-7 rounded-lg flex items-center justify-center text-alura-textMuted hover:text-alura-textPrimary hover:bg-alura-surface3 transition-all border border-alura-border/30 hover:border-alura-borderStrong cursor-pointer"
+            title="Recolher perfil"
+          >
+            <ChevronRight size={15} />
+          </button>
+        </div>
+
         {friendProfile ? (
           <div className="flex flex-col pb-6">
             
@@ -841,13 +985,24 @@ export function DirectMessage() {
                     <AvatarFallback className="bg-alura-surface2 text-xl font-bold">{initials}</AvatarFallback>
                   )}
                 </Avatar>
-                {(!friendProfile.status || friendProfile.status !== 'offline') && friendProfile.activity_status_visible !== false && (
-                  <div className={`absolute bottom-1 right-1 w-4 h-4 rounded-full border-[3px] border-alura-surface1 flex items-center justify-center ${friendProfile.status === 'dnd' ? 'bg-alura-danger' : friendProfile.status === 'idle' ? 'bg-[#F5A623]' : 'bg-alura-accent'}`}>
-                     {friendProfile.status === 'dnd' && <div className="w-2 h-[2px] bg-[#0B0D0F] rounded-full" />}
-                     {friendProfile.status === 'idle' && <Moon className="w-3 h-3 text-[#0B0D0F]" fill="currentColor" />}
-                     {(!friendProfile.status || friendProfile.status === 'online') && <Check className="w-3 h-3 text-[#0B0D0F]" />}
-                  </div>
-                )}
+                <div
+                  className={`absolute bottom-1 right-1 w-4 h-4 rounded-full border-[3px] border-alura-surface1 flex items-center justify-center ${
+                    effectiveFriendStatus === 'dnd' ? 'bg-alura-danger' :
+                    effectiveFriendStatus === 'idle' ? 'bg-[#F5A623]' :
+                    effectiveFriendStatus === 'online' ? 'bg-alura-accent' :
+                    'bg-alura-textDisabled'
+                  }`}
+                  title={
+                    effectiveFriendStatus === 'dnd' ? 'Não perturbe' :
+                    effectiveFriendStatus === 'idle' ? 'Ausente' :
+                    effectiveFriendStatus === 'online' ? 'Online' :
+                    'Offline'
+                  }
+                >
+                   {effectiveFriendStatus === 'dnd' && <div className="w-2 h-[2px] bg-[#0B0D0F] rounded-full" />}
+                   {effectiveFriendStatus === 'idle' && <Moon className="w-3 h-3 text-[#0B0D0F]" fill="currentColor" />}
+                   {effectiveFriendStatus === 'online' && <Check className="w-3 h-3 text-[#0B0D0F]" />}
+                </div>
               </div>
             </div>
 
@@ -1162,7 +1317,7 @@ export function DirectMessage() {
             <div className="w-16 h-16 rounded-full border-4 border-alura-border border-t-alura-accent animate-spin" />
           </div>
         )}
-      </div>
+      </aside>
 
       {/* Alert Modal */}
       {alertMessage && (
@@ -1187,6 +1342,33 @@ export function DirectMessage() {
             </div>
           </div>
         </div>
+      )}
+
+      {/* Lightbox Modal de Imagens em Tela Cheia */}
+      <ImageLightboxModal
+        isOpen={!!lightboxImage}
+        imageUrl={lightboxImage?.url || null}
+        imageName={lightboxImage?.name}
+        onClose={() => setLightboxImage(null)}
+      />
+
+      {/* Menu de Contexto (Botão Direito) estilo Discord */}
+      {contextMenu.isOpen && contextMenu.message && (
+        <MessageContextMenu
+          isOpen={contextMenu.isOpen}
+          position={contextMenu.position}
+          messageContent={contextMenu.message.content}
+          mediaUrl={contextMenu.message.attachments?.[0]?.url}
+          messageId={contextMenu.message.id}
+          canDelete={contextMenu.message.user_id === user?.id}
+          onClose={() => setContextMenu({ isOpen: false, position: { x: 0, y: 0 }, message: null })}
+          onDelete={() => handleDeleteMessage(contextMenu.message!.id)}
+          onReply={() => {
+            setNewMessage(`> ${contextMenu.message!.content}\n`)
+            chatInputRef.current?.focus()
+          }}
+          onToast={(msg) => showToast({ type: 'info', title: 'Área de Transferência', message: msg })}
+        />
       )}
     </div>
   )

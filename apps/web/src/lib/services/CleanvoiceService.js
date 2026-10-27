@@ -1,7 +1,8 @@
+import { AluraCrispProcessor } from '../audio/AluraCrispProcessor'
+
 /**
  * CleanvoiceService.js
- * Integração com a API Cleanvoice v2 (https://docs.cleanvoice.ai/docs/v2)
- * e DSP em tempo real para chamadas WebRTC.
+ * Integração com o motor nativo AluraCrispProcessor e API Cleanvoice v2.
  */
 
 export const CLEANVOICE_API_KEY = 'cvk_i36dBD13eqg.P3K6R78lYIYPkfyz2-MbT06OMcIFiC6FNFfFGgRvj_A'
@@ -130,132 +131,35 @@ export class CleanvoiceService {
   }
 
   /**
-   * DSP em Tempo Real para WebRTC com Noise Gate e Corte Espectral.
-   * Silencia ruídos de fundo (ventilador, digitação, respiração, eco residual)
-   * quando o usuário não estiver falando, e abre a voz instantaneamente com fidelidade total.
-   * 
-   * @param {MediaStream} inputStream - Stream do microfone
-   * @param {'cleanvoice'|'krisp'|'standard'|'off'} level - Nível de supressão
-   * @returns {{ filteredStream: MediaStream, cleanup: () => void }}
+   * Retorna restrições WebRTC adequadas para o modo escolhido via AluraCrispProcessor.
    */
-  static createLiveFilter(inputStream, level = 'cleanvoice') {
-    const AudioCtx = window.AudioContext || window.webkitAudioContext
-    const audioContext = new AudioCtx({
-      latencyHint: 'interactive',
-      sampleRate: 48000,
-    })
+  static getAudioConstraints(level = 'alura_crisp_smart', deviceId = null) {
+    return AluraCrispProcessor.getAudioConstraints(level, deviceId)
+  }
 
-    // Garante que o contexto de áudio esteja ativo imediatamente
-    if (audioContext.state === 'suspended') {
-      audioContext.resume().catch(() => {})
-    }
+  /**
+   * DSP em Tempo Real para WebRTC alimentado pelo motor Alura Crisp.
+   * Filtros Biquad, decomposição espectral multi-banda, piso dinâmico,
+   * VAD com micro-ataque e Soft-Knee Peak Limiter.
+   * 
+   * @param {MediaStream} inputStream - Stream de áudio do microfone
+   * @param {string} level - Perfil de supressão de ruído
+   * @param {Function} [onMetrics] - Callback opcional para receber métricas de ruído em tempo real
+   * @returns {{ filteredStream: MediaStream, cleanup: () => void, setMuted: (m: boolean) => void, setProfile: (p: string) => void, getMetrics: () => any }}
+   */
+  static createLiveFilter(inputStream, level = 'alura_crisp_smart', onMetrics = null) {
+    return AluraCrispProcessor.createStreamFilter(inputStream, level, onMetrics)
+  }
 
-    const source = audioContext.createMediaStreamSource(inputStream)
-
-    // 1. Filtro High-Pass a 85Hz: elimina vibrações de mesa, vento e ruído de 60Hz da rede
-    const highPass = audioContext.createBiquadFilter()
-    highPass.type = 'highpass'
-    highPass.frequency.setValueAtTime(85, audioContext.currentTime)
-    highPass.Q.setValueAtTime(0.7, audioContext.currentTime)
-
-    // 2. Analisador de volume RMS para o Noise Gate
-    const analyser = audioContext.createAnalyser()
-    analyser.fftSize = 512
-    analyser.smoothingTimeConstant = 0.2
-
-    // 3. Nó de ganho para o Gate
-    const gainNode = audioContext.createGain()
-    gainNode.gain.setValueAtTime(1.0, audioContext.currentTime)
-
-    source.connect(highPass)
-    highPass.connect(analyser)
-    highPass.connect(gainNode)
-
-    const destination = audioContext.createMediaStreamDestination()
-    gainNode.connect(destination)
-
-    // Limiar de silenciamento em dB (qualquer som mais baixo que este limite é cortado)
-    const thresholds = {
-      cleanvoice: -44, // Forte: corta ventilador, teclado, cliques, chiado
-      krisp: -48,      // Moderado
-      standard: -54,   // Leve
-      off: -100,       // Desativado
-    }
-
-    const thresholdDb = thresholds[level] ?? -44
-    const isOff = level === 'off'
-
-    const pcmData = new Float32Array(analyser.fftSize)
-    let gateOpen = true
-    let lastAboveThreshold = Date.now()
-    let userIsMuted = false
-    const HOLD_TIME_MS = 220 // Mantém a voz aberta por 220ms após parar de falar
-
-    const setMuted = (muted) => {
-      userIsMuted = !!muted
-      if (userIsMuted) {
-        gainNode.gain.setValueAtTime(0, audioContext.currentTime)
-      } else {
-        gainNode.gain.setValueAtTime(1.0, audioContext.currentTime)
-      }
-    }
-
-    const intervalId = setInterval(() => {
-      if (userIsMuted) {
-        gainNode.gain.setValueAtTime(0, audioContext.currentTime)
-        return
-      }
-
-      if (isOff) {
-        gainNode.gain.setTargetAtTime(1.0, audioContext.currentTime, 0.01)
-        return
-      }
-
-      if (audioContext.state === 'suspended') {
-        audioContext.resume().catch(() => {})
-      }
-
-      analyser.getFloatTimeDomainData(pcmData)
-      let sum = 0
-      for (let i = 0; i < pcmData.length; i++) {
-        sum += pcmData[i] * pcmData[i]
-      }
-      const rms = Math.sqrt(sum / pcmData.length)
-      const db = 20 * Math.log10(Math.max(rms, 1e-5))
-
-      const now = Date.now()
-      if (db > thresholdDb) {
-        lastAboveThreshold = now
-        if (!gateOpen) {
-          gateOpen = true
-          // Abre a voz instantaneamente (8ms)
-          gainNode.gain.setTargetAtTime(1.0, audioContext.currentTime, 0.008)
-        }
-      } else if (now - lastAboveThreshold > HOLD_TIME_MS) {
-        if (gateOpen) {
-          gateOpen = false
-          // Corta ruídos de fundo (30ms) para silêncio limpo
-          gainNode.gain.setTargetAtTime(0.001, audioContext.currentTime, 0.03)
-        }
-      }
-    }, 16)
-
-    return {
-      filteredStream: destination.stream,
-      setMuted,
-      cleanup: () => {
-        clearInterval(intervalId)
-        try {
-          source.disconnect()
-          highPass.disconnect()
-          analyser.disconnect()
-          gainNode.disconnect()
-          destination.disconnect()
-          audioContext.close().catch(() => {})
-        } catch {}
-      },
-    }
+  /**
+   * Alias estático para compatibilidade com chamadas WebRTC
+   */
+  static applyFilterChain(inputStream, level = 'alura_crisp_smart', onMetrics = null) {
+    return this.createLiveFilter(inputStream, level, onMetrics)
   }
 }
 
+export { AluraCrispProcessor }
 export default CleanvoiceService
+
+

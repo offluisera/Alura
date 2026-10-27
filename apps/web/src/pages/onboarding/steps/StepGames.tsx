@@ -2,24 +2,8 @@ import { Button, Input } from "@alura/ui"
 import { ArrowRight, ArrowLeft, Search, Check } from "lucide-react"
 import { useState } from "react"
 
-// Usando o CDN da Steam que sempre permite hotlinking
-export const GAMES_DB = [
-  { id: "cs2", name: "Counter-Strike 2", genre: "FPS", image: "https://steamcdn-a.akamaihd.net/steam/apps/730/library_600x900.jpg" },
-  { id: "gta5", name: "Grand Theft Auto V", genre: "Ação/Aventura", image: "https://steamcdn-a.akamaihd.net/steam/apps/271590/library_600x900.jpg" },
-  { id: "rdr2", name: "Red Dead Redemption 2", genre: "Aventura", image: "https://steamcdn-a.akamaihd.net/steam/apps/1174180/library_600x900.jpg" },
-  { id: "witcher3", name: "The Witcher 3", genre: "RPG", image: "https://steamcdn-a.akamaihd.net/steam/apps/292030/library_600x900.jpg" },
-  { id: "bg3", name: "Baldur's Gate 3", genre: "RPG", image: "https://steamcdn-a.akamaihd.net/steam/apps/1086940/library_600x900.jpg" },
-  { id: "cyberpunk", name: "Cyberpunk 2077", genre: "RPG", image: "https://steamcdn-a.akamaihd.net/steam/apps/1091500/library_600x900.jpg" },
-  { id: "elden", name: "Elden Ring", genre: "RPG", image: "https://steamcdn-a.akamaihd.net/steam/apps/1245620/library_600x900.jpg" },
-  { id: "apex", name: "Apex Legends", genre: "Battle Royale", image: "https://steamcdn-a.akamaihd.net/steam/apps/1172470/library_600x900.jpg" },
-  { id: "fc24", name: "EA SPORTS FC 24", genre: "Esportes", image: "https://steamcdn-a.akamaihd.net/steam/apps/2195250/library_600x900.jpg" },
-  { id: "tlou", name: "The Last of Us Part I", genre: "Ação/Sobrevivência", image: "https://steamcdn-a.akamaihd.net/steam/apps/1888930/library_600x900.jpg" },
-  { id: "overwatch2", name: "Overwatch 2", genre: "Hero Shooter", image: "https://steamcdn-a.akamaihd.net/steam/apps/2356590/library_600x900.jpg" },
-  { id: "stardew", name: "Stardew Valley", genre: "Simulação", image: "https://steamcdn-a.akamaihd.net/steam/apps/413150/library_600x900.jpg" },
-  { id: "hollow", name: "Hollow Knight", genre: "Metroidvania", image: "https://steamcdn-a.akamaihd.net/steam/apps/367520/library_600x900.jpg" },
-  { id: "terraria", name: "Terraria", genre: "Sandbox", image: "https://steamcdn-a.akamaihd.net/steam/apps/105600/library_600x900.jpg" },
-  { id: "forza", name: "Forza Horizon 5", genre: "Corrida", image: "https://steamcdn-a.akamaihd.net/steam/apps/1551360/library_600x900.jpg" }
-]
+import { GAMES_DB } from "../../../lib/constants/games"
+export { GAMES_DB }
 
 export function StepGames({ data, updateData, onNext, onBack }: any) {
   const [search, setSearch] = useState("")

@@ -1,0 +1,344 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Alura · Teste · #geral</title>
+<style>
+  :root {
+    --bg: #0c0e0d; --field: #0f1211; --side: #101312; --card: #161918; --card-2: #1d2120; --line: #232826;
+    --text: #f2f5f3; --muted: #8f9a95; --accent: #2dff7a; --accent-soft: rgba(45,255,122,.12);
+    --on-accent: #04130a; --online: #3ddc84; --away: #f5c451; --dnd: #ff6b6b; --off: #555d59;
+    --role-vip: #b69cff; --role-teste: #ff7a7a;
+    color-scheme: dark;
+    box-sizing: border-box;
+  }
+  *, *::before, *::after { box-sizing: inherit; }
+  html, body { height: 100%; margin: 0; }
+  body { font-family: "Inter", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; background: var(--bg); color: var(--text); font-size: 14px; }
+  button, input { font: inherit; color: inherit; }
+  button { background: none; border: 0; cursor: pointer; }
+  a { color: inherit; text-decoration: none; }
+  [hidden] { display: none !important; }
+  svg.i { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; flex: none; }
+  :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+  .app { display: grid; grid-template-columns: 240px minmax(0,1fr); height: 100vh; }
+
+  /* Lateral */
+  .side { background: var(--side); border-right: 1px solid var(--line); display: flex; flex-direction: column; min-height: 0; }
+  .logo { height: 64px; display: flex; align-items: center; padding: 0 20px; }
+  .logo svg { width: 34px; height: 34px; }
+  .nav { padding: 4px 12px; display: grid; gap: 2px; }
+  .nav a { position: relative; display: flex; align-items: center; gap: 12px; height: 40px; padding: 0 12px; border-radius: 8px; color: var(--muted); font-weight: 500; transition: background .15s, color .15s; }
+  .nav a:hover, .srv:hover { background: var(--card-2); color: var(--text); }
+  .nav a[aria-current="page"] { background: var(--accent-soft); color: var(--text); }
+  .nav a[aria-current="page"] svg { color: var(--accent); }
+  .nav a[aria-current="page"]::before, .srv.on::before { content: ""; position: absolute; left: -12px; top: 9px; bottom: 9px; width: 3px; border-radius: 0 3px 3px 0; background: var(--accent); }
+  .nav .gap { height: 12px; }
+  .side h3 { margin: 20px 24px 8px; font-size: 12px; font-weight: 600; color: var(--muted); display: flex; justify-content: space-between; align-items: center; }
+  .side h3 button { color: var(--muted); display: grid; }
+  .srv { position: relative; display: flex; align-items: center; gap: 10px; margin: 0 12px; padding: 6px 12px; border-radius: 8px; }
+  .srv.on { background: var(--accent-soft); }
+  .srv b { font-weight: 600; display: block; } .srv small { color: var(--muted); font-size: 12px; }
+  .me { margin-top: auto; padding: 10px 12px; border-top: 1px solid var(--line); display: flex; align-items: center; gap: 10px; }
+  .me .who { flex: 1; min-width: 0; line-height: 1.25; } .me .who b { display: block; } .me .who small { color: var(--muted); font-size: 12px; }
+  .me button { width: 32px; height: 32px; border-radius: 6px; display: grid; place-items: center; color: var(--muted); }
+  .me button:hover, .icon-btn:hover { background: var(--card-2); color: var(--text); }
+  .me svg.i { width: 18px; height: 18px; }
+
+  .av { position: relative; width: 36px; height: 36px; border-radius: 50%; display: grid; place-items: center; flex: none; font-weight: 700; font-size: 13px; background: #243029; color: var(--accent); }
+  .av.sq { border-radius: 12px; } .av.lg { width: 40px; height: 40px; } .av.sm { width: 32px; height: 32px; font-size: 12px; }
+  .av .st { position: absolute; right: -2px; bottom: -2px; width: 10px; height: 10px; border-radius: 50%; border: 2px solid var(--side); background: var(--online); box-sizing: content-box; }
+  .av .st.dnd { background: var(--dnd); } .av .st.off { background: var(--off); }
+
+  /* Topo */
+  .main { display: flex; flex-direction: column; min-width: 0; min-height: 0; }
+  .top { height: 64px; flex: none; display: flex; align-items: center; gap: 12px; padding: 0 24px; border-bottom: 1px solid var(--line); }
+  .search { flex: 1; max-width: 520px; position: relative; }
+  .search svg { position: absolute; left: 12px; top: 10px; width: 18px; height: 18px; color: var(--muted); }
+  .search input { width: 100%; height: 38px; border: 0; border-radius: 8px; background: var(--card); padding: 0 44px 0 38px; }
+  .search input::placeholder, .box input::placeholder { color: var(--muted); }
+  .search input:focus { outline: 2px solid var(--accent); background: var(--card-2); }
+  .search kbd { position: absolute; right: 10px; top: 8px; font: 600 11px/20px inherit; color: var(--muted); background: var(--card-2); border-radius: 4px; padding: 0 7px; }
+  .sp { flex: 1; }
+  .icon-btn { width: 36px; height: 36px; border-radius: 8px; display: grid; place-items: center; color: var(--muted); }
+  .icon-btn[aria-pressed="true"] { color: var(--accent); }
+
+  /* Servidor */
+  .srvwrap { flex: 1; min-height: 0; display: grid; grid-template-columns: 240px minmax(0,1fr) auto; }
+  .chans { background: var(--side); border-right: 1px solid var(--line); display: flex; flex-direction: column; min-height: 0; }
+  .srvhead { height: 56px; padding: 0 16px; display: flex; align-items: center; gap: 10px; border-bottom: 1px solid var(--line); }
+  .srvhead b { display: block; line-height: 1.2; } .srvhead small { color: var(--muted); font-size: 12px; }
+  .srvhead .t { flex: 1; min-width: 0; }
+  .group { margin: 16px 20px 6px; font-size: 12px; font-weight: 600; color: var(--muted); }
+  .ch { position: relative; display: flex; align-items: center; gap: 8px; height: 34px; margin: 0 8px; padding: 0 12px; border-radius: 8px; color: var(--muted); font-weight: 500; width: calc(100% - 16px); text-align: left; transition: background .15s, color .15s; }
+  .ch:hover { background: var(--card-2); color: var(--text); }
+  .ch[aria-current="true"] { background: var(--accent-soft); color: var(--text); }
+  .ch[aria-current="true"] .h { color: var(--accent); }
+  .ch .h { width: 18px; text-align: center; font-size: 17px; font-weight: 500; line-height: 1; }
+  .ch svg { width: 17px; height: 17px; }
+
+  .chat { display: flex; flex-direction: column; min-width: 0; min-height: 0; }
+  .chat > header { height: 56px; flex: none; padding: 0 12px 0 20px; display: flex; align-items: center; gap: 12px; border-bottom: 1px solid var(--line); }
+  .chat > header .hh { font-size: 22px; color: var(--accent); line-height: 1; }
+  .chat > header h1 { margin: 0; font-size: 16px; }
+  .chat > header .d { color: var(--muted); font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+  .owner { height: 30px; padding: 0 12px; border-radius: 8px; background: var(--card); color: var(--muted); font-weight: 600; font-size: 13px; white-space: nowrap; }
+  .owner:hover { background: var(--card-2); color: var(--text); }
+
+  .scroll { flex: 1; overflow-y: auto; padding: 8px 0 16px; }
+  .m { position: relative; display: grid; grid-template-columns: 40px 1fr; gap: 14px; padding: 2px 20px; }
+  .m:hover { background: rgba(255,255,255,.025); }
+  .m.first { margin-top: 14px; }
+  .m .gut time { display: none; color: var(--muted); font-size: 11px; text-align: center; line-height: 22px; }
+  .m:not(.first):hover .gut time { display: block; }
+  .m h4 { margin: 0 0 4px; font-size: 15px; font-weight: 600; display: flex; align-items: center; gap: 8px; }
+  .m h4 time { color: var(--muted); font-size: 12px; font-weight: 400; }
+  .role { font-size: 11px; font-weight: 700; color: var(--accent); background: var(--accent-soft); border-radius: 4px; padding: 1px 6px; }
+  .m p { margin: 0; line-height: 1.45; overflow-wrap: anywhere; }
+  .gif { position: relative; width: min(320px, 100%); aspect-ratio: 16/10; border-radius: 12px; overflow: hidden; display: grid; place-items: center; background: linear-gradient(135deg, #20302a, #121816); color: var(--muted); font-size: 13px; }
+  .gif img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+  .gif .tag { position: absolute; left: 8px; bottom: 8px; background: rgba(0,0,0,.65); border-radius: 4px; font-size: 11px; font-weight: 700; color: var(--text); padding: 1px 6px; }
+  .reacts { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
+  .reacts button { height: 26px; padding: 0 8px; border-radius: 13px; background: var(--card); display: flex; align-items: center; gap: 5px; font-size: 13px; color: var(--muted); }
+  .reacts button.me { background: var(--accent-soft); color: var(--accent); }
+  .tools { position: absolute; right: 20px; top: -14px; display: none; background: var(--card-2); border-radius: 10px; padding: 3px; gap: 2px; box-shadow: 0 6px 20px rgba(0,0,0,.4); z-index: 2; }
+  .m:hover .tools, .m:focus-within .tools { display: flex; }
+  .tools button { width: 30px; height: 30px; border-radius: 6px; display: grid; place-items: center; font-size: 15px; color: var(--muted); }
+  .tools button:hover { background: rgba(255,255,255,.08); color: var(--text); }
+  .tools svg.i { width: 16px; height: 16px; }
+  .tools i { width: 1px; background: var(--line); margin: 4px 3px; }
+  .nomsg { text-align: center; color: var(--muted); padding: 64px 16px; }
+  .nomsg b { display: block; color: var(--text); font-size: 15px; margin-bottom: 4px; }
+
+  .composer { flex: none; padding: 0 20px 20px; }
+  .box { display: flex; align-items: center; gap: 4px; background: var(--card); border-radius: 12px; padding: 4px 6px; }
+  .box:focus-within { box-shadow: 0 0 0 2px var(--accent); }
+  .box input { flex: 1; min-width: 0; height: 40px; background: none; border: 0; padding: 0 8px; }
+  .box input:focus { outline: none; }
+  .gifbtn { height: 28px; padding: 0 8px; border-radius: 6px; font-size: 12px; font-weight: 700; color: var(--muted); background: var(--card-2); }
+  .gifbtn:hover { color: var(--text); }
+  .send { width: 34px; height: 34px; border-radius: 8px; display: grid; place-items: center; background: var(--accent); color: var(--on-accent); }
+  .send:disabled { background: var(--card-2); color: var(--muted); cursor: default; }
+  .send svg { width: 17px; height: 17px; }
+
+  /* Membros */
+  .members { width: 240px; background: var(--side); border-left: 1px solid var(--line); overflow-y: auto; padding: 16px 8px; }
+  .members h2 { margin: 0 12px 4px; font-size: 12px; font-weight: 600; color: var(--muted); }
+  .gl { margin: 16px 12px 6px; font-size: 12px; font-weight: 700; }
+  .gl small { color: var(--muted); font-weight: 600; margin-left: 4px; }
+  .mem { display: flex; align-items: center; gap: 10px; padding: 6px 12px; border-radius: 8px; }
+  .mem:hover { background: var(--card-2); }
+  .mem.off { opacity: .55; }
+  .mem .t { min-width: 0; line-height: 1.3; }
+  .mem b { display: flex; align-items: center; gap: 6px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .mem small { color: var(--muted); font-size: 12px; }
+  .mem b svg { width: 13px; height: 13px; color: #f5c451; }
+  .mem .rt { font-size: 10px; font-weight: 700; border-radius: 4px; padding: 0 5px; color: var(--role-teste); background: rgba(255,122,122,.14); }
+
+  @media (max-width: 1180px) { .members { display: none; } .srvwrap { grid-template-columns: 240px minmax(0,1fr); } }
+  @media (max-width: 760px) { .app { grid-template-columns: 1fr; } .side { display: none; } .srvwrap { grid-template-columns: 1fr; } .chans { display: none; } .owner { display: none; } }
+  @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <linearGradient id="g1" x1="15%" y1="85%" x2="65%" y2="15%"><stop offset="0" stop-color="#00DFA0"/><stop offset=".4" stop-color="#39FF88"/><stop offset="1" stop-color="#7EFFBD"/></linearGradient>
+    <linearGradient id="g2" x1="35%" y1="15%" x2="85%" y2="85%"><stop offset="0" stop-color="#00DFA0"/><stop offset=".45" stop-color="#00B377"/><stop offset="1" stop-color="#004B1F"/></linearGradient>
+    <linearGradient id="g3" x1="50%" y1="45%" x2="50%" y2="90%"><stop offset="0" stop-color="#007A40"/><stop offset=".5" stop-color="#003516"/><stop offset="1" stop-color="#001609"/></linearGradient>
+    <symbol id="home" viewBox="0 0 24 24"><path d="M3 11l9-8 9 8M5 10v10h5v-6h4v6h5V10"/></symbol>
+    <symbol id="users" viewBox="0 0 24 24"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c.5-3.5 3.2-5.5 6.5-5.5s6 2 6.5 5.5M16 4.5a3.5 3.5 0 010 7M18 14.8c2 .6 3.3 2.3 3.6 5"/></symbol>
+    <symbol id="user" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21c.6-4 3.7-6 8-6s7.4 2 8 6"/></symbol>
+    <symbol id="uplus" viewBox="0 0 24 24"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c.5-3.5 3.2-5.5 6.5-5.5s6 2 6.5 5.5M19 8v6M16 11h6"/></symbol>
+    <symbol id="chat" viewBox="0 0 24 24"><path d="M4 5h16v11H9l-5 4z"/></symbol>
+    <symbol id="server" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="7" rx="2"/><rect x="3" y="13" width="18" height="7" rx="2"/><path d="M7 7.5h.01M7 16.5h.01"/></symbol>
+    <symbol id="gear" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M5 5l2 2M17 17l2 2M19 5l-2 2M7 17l-2 2"/></symbol>
+    <symbol id="search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/></symbol>
+    <symbol id="bell" viewBox="0 0 24 24"><path d="M6 17V11a6 6 0 0112 0v6l2 2H4zM10 21h4"/></symbol>
+    <symbol id="plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+    <symbol id="mic" viewBox="0 0 24 24"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0014 0M12 18v3"/></symbol>
+    <symbol id="head" viewBox="0 0 24 24"><path d="M4 15v-3a8 8 0 0116 0v3M4 15h4v5H5a1 1 0 01-1-1zM20 15h-4v5h3a1 1 0 001-1z"/></symbol>
+    <symbol id="speaker" viewBox="0 0 24 24"><path d="M4 9v6h4l5 4V5L8 9zM16.500 9a4 4 0 010 6"/></symbol>
+    <symbol id="smile" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M8 14c1 1.500 2.300 2 4 2s3-.5 4-2M9 9.500h.01M15 9.500h.01"/></symbol>
+    <symbol id="sendi" viewBox="0 0 24 24"><path d="M4 12l16-8-6 16-3-7z"/></symbol>
+    <symbol id="reply" viewBox="0 0 24 24"><path d="M9 7L4 12l5 5M4 12h10a6 6 0 016 6"/></symbol>
+    <symbol id="trash" viewBox="0 0 24 24"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/></symbol>
+    <symbol id="crown" viewBox="0 0 24 24"><path d="M3 8l4.500 4L12 5l4.500 7L21 8l-2 11H5z" style="fill:currentColor;stroke:none"/></symbol>
+    <symbol id="chev" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></symbol>
+  </defs>
+</svg>
+
+<div class="app">
+  <aside class="side">
+    <div class="logo" aria-label="Alura">
+      <svg viewBox="0 0 100 100" fill="none" aria-hidden="true">
+        <path d="M26 73C34 60 41 53 50 53C59 53 66 60 74 73C66 64 58 59 50 59C42 59 34 64 26 73Z" fill="url(#g3)"/>
+        <path d="M50 14C55 14 59 18 61 22L83 67C87 75 80 83 73 81C69 80 66 77 64 72L51 44C50 42 49 32 50 14Z" fill="url(#g2)"/>
+        <path d="M50 14C44 14 40 18 38 22L17 67C13 75 20 83 27 81C31 80 34 77 36 72L49 44C51 40 52 30 55 22C54 16 52 14 50 14Z" fill="url(#g1)"/>
+      </svg>
+    </div>
+    <nav class="nav" aria-label="Principal">
+      <a href="#"><svg class="i"><use href="#home"/></svg>Início</a>
+      <a href="#"><svg class="i"><use href="#users"/></svg>Amigos</a>
+      <a href="#"><svg class="i"><use href="#user"/></svg>Perfil</a>
+      <a href="#"><svg class="i"><use href="#uplus"/></svg>Solicitações</a>
+      <a href="#"><svg class="i"><use href="#chat"/></svg>Mensagens</a>
+      <div class="gap"></div>
+      <a href="#" aria-current="page"><svg class="i"><use href="#server"/></svg>Servidores</a>
+      <a href="#"><svg class="i"><use href="#gear"/></svg>Configurações</a>
+    </nav>
+    <h3>Seus servidores <button aria-label="Criar servidor"><svg class="i" style="width:16px;height:16px"><use href="#plus"/></svg></button></h3>
+    <a class="srv on" href="#"><span class="av sq">T</span><div><b>Teste</b><small>1 online</small></div></a>
+    <div class="me">
+      <span class="av">C<i class="st dnd"></i></span>
+      <div class="who"><b>Continha</b><small>Não perturbe</small></div>
+      <button aria-label="Microfone"><svg class="i"><use href="#mic"/></svg></button>
+      <button aria-label="Fones"><svg class="i"><use href="#head"/></svg></button>
+      <button aria-label="Ajustes"><svg class="i"><use href="#gear"/></svg></button>
+    </div>
+  </aside>
+
+  <section class="main">
+    <header class="top">
+      <label class="search"><svg class="i"><use href="#search"/></svg><input type="search" placeholder="Buscar amigos, usuários, servidores"><kbd>/</kbd></label>
+      <span class="sp"></span>
+      <button class="icon-btn" aria-label="Notificações"><svg class="i"><use href="#bell"/></svg></button>
+    </header>
+
+    <div class="srvwrap">
+      <aside class="chans" aria-label="Canais">
+        <div class="srvhead">
+          <span class="av sq">T</span>
+          <div class="t"><b>Teste</b><small>4 membros</small></div>
+          <button class="icon-btn" aria-label="Menu do servidor"><svg class="i"><use href="#chev"/></svg></button>
+        </div>
+        <div class="group">Canais de texto</div>
+        <button class="ch" data-c="voz"><svg class="i"><use href="#speaker"/></svg>Voz Principal</button>
+        <button class="ch" data-c="geral" aria-current="true"><span class="h">#</span>geral</button>
+        <button class="ch" data-c="anuncios"><span class="h">#</span>anúncios</button>
+      </aside>
+
+      <section class="chat" aria-label="Canal">
+        <header>
+          <span class="hh" id="hh">#</span>
+          <h1 id="ch-name">geral</h1>
+          <span class="d" id="ch-desc">Canal de bate-papo geral da comunidade</span>
+          <span class="sp"></span>
+          <button class="owner">Visão de dono</button>
+          <button class="icon-btn" id="toggle-members" aria-label="Mostrar membros" aria-pressed="true"><svg class="i"><use href="#users"/></svg></button>
+        </header>
+        <div class="scroll" id="scroll"></div>
+        <form class="composer" id="form">
+          <div class="box">
+            <button type="button" class="icon-btn" aria-label="Anexar"><svg class="i"><use href="#plus"/></svg></button>
+            <input id="msg" type="text" placeholder="Conversar em #geral" autocomplete="off">
+            <button type="button" class="gifbtn">GIF</button>
+            <button type="button" class="icon-btn" aria-label="Emoji"><svg class="i"><use href="#smile"/></svg></button>
+            <button class="send" id="send" aria-label="Enviar" disabled><svg class="i"><use href="#sendi"/></svg></button>
+          </div>
+        </form>
+      </section>
+
+      <aside class="members" id="members" aria-label="Membros">
+        <h2>Membros (4)</h2>
+        <div class="gl" style="color:var(--role-vip)">Membro VIP <small>1</small></div>
+        <div class="mem"><span class="av sm">C<i class="st dnd"></i></span><div class="t"><b>Continha <svg class="i"><use href="#crown"/></svg></b><small>@contatestel</small></div></div>
+        <div class="gl" style="color:var(--role-teste)">Teste <small>1</small></div>
+        <div class="mem"><span class="av sm">L<i class="st dnd"></i></span><div class="t"><b>Luis Fernando <span class="rt">TESTE</span></b><small>@luisera</small></div></div>
+        <div class="gl" style="color:var(--muted)">Offline <small>2</small></div>
+        <div class="mem off"><span class="av sm">K<i class="st off"></i></span><div class="t"><b>kroftus</b><small>@ykroftus_</small></div></div>
+        <div class="mem off"><span class="av sm">S<i class="st off"></i></span><div class="t"><b>Suporte Alura</b><small>@adminalura</small></div></div>
+      </aside>
+    </div>
+  </section>
+</div>
+
+<script>
+  const $ = id => document.getElementById(id);
+  const EMOJIS = ['👍','❤️','🔥','😂'];
+  // Troque pelos dados reais. Em "gif" coloque a URL da imagem.
+  const channels = {
+    geral:    { name: 'geral',    desc: 'Canal de bate-papo geral da comunidade', msgs: [
+      { user: 'Continha', init: 'C', role: 'DONO', time: '20:25', gif: '', reacts: {} },
+      { user: 'Continha', init: 'C', role: 'DONO', time: '20:27', gif: '', reacts: {} } ] },
+    anuncios: { name: 'anúncios', desc: 'Novidades e avisos do servidor', msgs: [] }
+  };
+  let cur = 'geral';
+
+  const icon = (id) => '<svg class="i"><use href="#' + id + '"/></svg>';
+
+  function render() {
+    const c = channels[cur], box = $('scroll'); box.innerHTML = '';
+    $('ch-name').textContent = c.name; $('ch-desc').textContent = c.desc;
+    $('msg').placeholder = 'Conversar em #' + c.name;
+    if (!c.msgs.length) { box.innerHTML = '<div class="nomsg"><b>Bem-vindo a #' + c.name + '</b>Ainda não há mensagens aqui.</div>'; return; }
+    let last = null;
+    c.msgs.forEach((m, idx) => {
+      const first = last !== m.user; last = m.user;
+      const row = document.createElement('div'); row.className = 'm' + (first ? ' first' : '');
+      row.innerHTML = '<div class="gut"></div><div><div class="body"></div><div class="reacts"></div></div>' +
+        '<div class="tools"></div>';
+      const gut = row.querySelector('.gut');
+      if (first) { gut.innerHTML = '<span class="av lg"></span>'; gut.firstChild.textContent = m.init; }
+      else { gut.innerHTML = '<time></time>'; gut.firstChild.textContent = m.time; }
+      const body = row.querySelector('.body');
+      if (first) {
+        const h = document.createElement('h4'); const n = document.createElement('span');
+        n.textContent = m.user; if (m.user === 'Continha') n.style.color = 'var(--role-vip)'; h.appendChild(n);
+        if (m.role) { const r = document.createElement('span'); r.className = 'role'; r.textContent = m.role; h.appendChild(r); }
+        const t = document.createElement('time'); t.textContent = m.time; h.appendChild(t); body.appendChild(h);
+      }
+      if (m.text) { const p = document.createElement('p'); p.textContent = m.text; body.appendChild(p); }
+      if (m.gif !== undefined && m.text === undefined) {
+        const g = document.createElement('div'); g.className = 'gif';
+        g.innerHTML = (m.gif ? '<img alt="GIF" src="">' : '<span>GIF</span>') + '<span class="tag">GIF</span>';
+        if (m.gif) g.querySelector('img').src = m.gif; body.appendChild(g);
+      }
+      // reações
+      const rc = row.querySelector('.reacts');
+      Object.entries(m.reacts).forEach(([e, v]) => {
+        if (!v.n) return; const b = document.createElement('button'); b.className = v.me ? 'me' : '';
+        b.textContent = e + ' ' + v.n; b.onclick = () => toggle(m, e); rc.appendChild(b);
+      });
+      // barra de ações
+      const tools = row.querySelector('.tools');
+      EMOJIS.forEach(e => { const b = document.createElement('button'); b.textContent = e; b.setAttribute('aria-label', 'Reagir com ' + e); b.onclick = () => toggle(m, e); tools.appendChild(b); });
+      tools.insertAdjacentHTML('beforeend', '<i></i><button aria-label="Responder">' + icon('reply') + '</button>');
+      const del = document.createElement('button'); del.setAttribute('aria-label', 'Excluir'); del.innerHTML = icon('trash');
+      del.onclick = () => { c.msgs.splice(idx, 1); render(); }; // TODO: excluir no backend
+      tools.appendChild(del);
+      box.appendChild(row);
+    });
+    box.scrollTop = box.scrollHeight;
+  }
+  function toggle(m, e) {
+    const v = m.reacts[e] || (m.reacts[e] = { n: 0, me: false });
+    v.me = !v.me; v.n += v.me ? 1 : -1; const y = $('scroll').scrollTop; render(); $('scroll').scrollTop = y;
+  }
+
+  document.querySelectorAll('.ch').forEach(b => b.addEventListener('click', () => {
+    if (b.dataset.c === 'voz') return; // TODO: entrar no canal de voz
+    cur = b.dataset.c;
+    document.querySelectorAll('.ch').forEach(x => x.removeAttribute('aria-current')); b.setAttribute('aria-current', 'true');
+    render();
+  }));
+
+  const msg = $('msg'), send = $('send');
+  msg.addEventListener('input', () => send.disabled = !msg.value.trim());
+  $('form').addEventListener('submit', e => {
+    e.preventDefault(); const text = msg.value.trim(); if (!text) return;
+    const time = new Date().toTimeString().slice(0, 5);
+    channels[cur].msgs.push({ user: 'Continha', init: 'C', role: 'DONO', time, text, reacts: {} }); // TODO: enviar ao backend
+    msg.value = ''; send.disabled = true; render();
+  });
+
+  $('toggle-members').addEventListener('click', e => {
+    const on = e.currentTarget.getAttribute('aria-pressed') !== 'true';
+    e.currentTarget.setAttribute('aria-pressed', on); $('members').hidden = !on;
+  });
+  render();
+</script>
+</body>
+</html>

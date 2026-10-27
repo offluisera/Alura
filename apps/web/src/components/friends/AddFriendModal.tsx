@@ -1,5 +1,4 @@
 import { useState } from "react"
-import { X, Search, UserPlus, Check, AlertCircle } from "lucide-react"
 import { supabase } from "../../lib/supabase"
 import { PrivacyService } from "../../lib/services/PrivacyService"
 
@@ -34,7 +33,6 @@ export function AddFriendModal({ isOpen, onClose, currentUser }: AddFriendModalP
 
       let targetProfile: any = null
 
-      // 1. Busca inteligente por E-mail, Telefone ou Username
       if (isEmail) {
         if (currentUser.email && rawInput.toLowerCase() === currentUser.email.toLowerCase()) {
           throw new Error("Você não pode adicionar a si mesmo.")
@@ -47,12 +45,11 @@ export function AddFriendModal({ isOpen, onClose, currentUser }: AddFriendModalP
           .maybeSingle()
 
         if (error || !data) {
-          throw new Error("Nenhum usuário encontrado com este e-mail. Verifique se o endereço está correto ou se o usuário permite descoberta por e-mail.")
+          throw new Error("Nenhum usuário encontrado com este e-mail.")
         }
 
-        // Valida se o usuário alvo permite ser encontrado por e-mail (padrão true)
         if (data.discover_by_email === false) {
-          throw new Error("Este usuário desativou a descoberta de conta por e-mail nas configurações de privacidade.")
+          throw new Error("Este usuário desativou a descoberta de conta por e-mail.")
         }
 
         targetProfile = data
@@ -64,12 +61,11 @@ export function AddFriendModal({ isOpen, onClose, currentUser }: AddFriendModalP
           .maybeSingle()
 
         if (error || !data) {
-          throw new Error("Nenhum usuário encontrado com este telefone. Verifique se o número está correto ou se o usuário ativou a descoberta por telefone.")
+          throw new Error("Nenhum usuário encontrado com este telefone.")
         }
 
-        // Valida se o usuário alvo permite ser encontrado por telefone (padrão false)
         if (!data.discover_by_phone) {
-          throw new Error("Este usuário não ativou a descoberta de conta por telefone nas configurações de privacidade.")
+          throw new Error("Este usuário não ativou a descoberta de conta por telefone.")
         }
 
         targetProfile = data
@@ -87,7 +83,7 @@ export function AddFriendModal({ isOpen, onClose, currentUser }: AddFriendModalP
           .maybeSingle()
 
         if (error || !data) {
-          throw new Error("Nenhum usuário encontrado com o username @" + cleanUsername + ". Verifique se as letras estão corretas.")
+          throw new Error("Nenhum usuário encontrado com o username @" + cleanUsername + ".")
         }
 
         targetProfile = data
@@ -97,13 +93,11 @@ export function AddFriendModal({ isOpen, onClose, currentUser }: AddFriendModalP
         throw new Error("Você não pode adicionar a si mesmo.")
       }
 
-      // 1.1 Verificar privacidade do destinatário (Quem pode enviar pedido de amizade)
       const privacyCheck = await PrivacyService.checkCanSendFriendRequest(currentUser.id, targetProfile.id, targetProfile)
       if (!privacyCheck.allowed) {
         throw new Error(privacyCheck.reason || "Este usuário não aceita pedidos de amizade no momento.")
       }
 
-      // 2. Verificar se já existe uma amizade ou solicitação
       const { data: existing } = await supabase
         .from('friendships')
         .select('status')
@@ -118,7 +112,6 @@ export function AddFriendModal({ isOpen, onClose, currentUser }: AddFriendModalP
         }
       }
 
-      // 3. Enviar a solicitação de amizade
       const { error: insertError } = await supabase
         .from('friendships')
         .insert({
@@ -154,76 +147,66 @@ export function AddFriendModal({ isOpen, onClose, currentUser }: AddFriendModalP
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
-      <div className="bg-alura-surface1 w-full max-w-[480px] rounded-2xl shadow-2xl border border-alura-border overflow-hidden animate-in zoom-in-95 duration-200">
-        
-        {/* Header do Modal */}
-        <div className="flex items-center justify-between p-6 pb-4">
-          <div>
-            <h2 className="text-xl font-bold text-white tracking-tight uppercase">Adicionar amigo</h2>
-            <p className="text-sm text-alura-textMuted mt-1">Você pode adicionar amigos usando o username, e-mail ou telefone.</p>
-          </div>
-          <button 
-            onClick={handleClose}
-            className="p-2 text-alura-textMuted hover:text-white hover:bg-alura-surface2 rounded-xl transition-colors shrink-0 cursor-pointer"
-          >
-            <X className="w-5 h-5" />
-          </button>
-        </div>
+    <div 
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200"
+      onClick={handleClose}
+    >
+      <div 
+        className="amigos-dialog animate-in zoom-in-95 duration-200"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <form onSubmit={handleSendRequest}>
+          <h2>Adicionar amigo</h2>
+          <p>Digite o nome de usuário da pessoa.</p>
 
-        {/* Corpo do Modal */}
-        <div className="p-6 pt-2">
-          <form onSubmit={handleSendRequest} className="space-y-4">
-            
-            <div className="relative group">
-              <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-alura-textMuted group-focus-within:text-alura-accent transition-colors">
-                <Search className="w-4 h-4" />
-              </div>
-              <input 
-                type="text" 
-                placeholder="Digite o @username, e-mail ou telefone..." 
-                value={username}
-                onChange={(e) => {
-                  setUsername(e.target.value)
-                  setStatus('idle')
-                }}
-                disabled={loading}
-                className={`w-full h-14 bg-alura-surface2 border ${status === 'error' ? 'border-alura-danger focus:border-alura-danger' : status === 'success' ? 'border-alura-success focus:border-alura-success' : 'border-alura-border focus:border-alura-accent'} focus:shadow-[0_0_15px_rgba(57,255,136,0.1)] rounded-[12px] pl-11 pr-32 text-[15px] text-white placeholder:text-alura-textDisabled outline-none transition-all disabled:opacity-50`}
-              />
-              
-              <div className="absolute right-2 inset-y-0 flex items-center">
-                <button 
-                  type="submit"
-                  disabled={!username.trim() || loading}
-                  className="h-10 px-4 bg-alura-accent hover:brightness-110 text-alura-background disabled:opacity-50 disabled:cursor-not-allowed rounded-[8px] text-sm font-semibold transition-all shadow-[0_0_15px_rgba(57,255,136,0.2)] flex items-center gap-2 cursor-pointer"
-                >
-                  {loading ? (
-                    <div className="w-4 h-4 border-2 border-alura-background/30 border-t-alura-background rounded-full animate-spin" />
-                  ) : (
-                    "Enviar"
-                  )}
-                </button>
-              </div>
-            </div>
+          <input 
+            type="text" 
+            placeholder="@usuario" 
+            autoComplete="off" 
+            autoCapitalize="none"
+            value={username}
+            onChange={(e) => {
+              setUsername(e.target.value)
+              setStatus('idle')
+            }}
+            disabled={loading}
+            autoFocus
+          />
 
-            {/* Mensagens de Feedback */}
+          <div className="min-h-[20px] mt-2 text-[13px] font-medium" role="status">
             {status === 'success' && (
-              <div className="flex items-center gap-2 text-alura-success text-sm font-medium animate-in slide-in-from-top-2 bg-alura-success/10 p-3 rounded-lg border border-alura-success/20">
-                <Check className="w-4 h-4 shrink-0" />
-                <span>Sucesso! A solicitação de amizade foi enviada para <strong>{targetName}</strong>.</span>
-              </div>
+              <span className="text-[var(--amigos-accent)]">
+                Solicitação de amizade enviada com sucesso para <strong>{targetName}</strong>.
+              </span>
             )}
-
             {status === 'error' && (
-              <div className="flex items-start gap-2 text-alura-danger text-[13px] font-medium animate-in slide-in-from-top-2 bg-alura-danger/10 p-3 rounded-lg border border-alura-danger/20">
-                <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
-                <span className="leading-snug">{errorMessage}</span>
-              </div>
+              <span className="text-[var(--amigos-dnd)]">
+                {errorMessage}
+              </span>
             )}
+          </div>
 
-          </form>
-        </div>
-
+          <div className="foot">
+            <button 
+              type="button" 
+              onClick={handleClose} 
+              className="amigos-ghost"
+            >
+              Cancelar
+            </button>
+            <button 
+              type="submit" 
+              disabled={!username.trim() || loading} 
+              className="amigos-btn disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {loading ? (
+                <div className="w-4 h-4 border-2 border-[var(--amigos-on-accent)]/30 border-t-[var(--amigos-on-accent)] rounded-full animate-spin" />
+              ) : (
+                "Enviar solicitação"
+              )}
+            </button>
+          </div>
+        </form>
       </div>
     </div>
   )

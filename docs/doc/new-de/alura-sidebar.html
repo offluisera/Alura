@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Alura · Sidebar</title>
+<style>
+  :root {
+    --bg: #0c0e0d; --field: #0f1211; --side: #101312; --card: #161918; --card-2: #1d2120; --line: #232826;
+    --text: #f2f5f3; --muted: #8f9a95; --accent: #2dff7a; --accent-soft: rgba(45,255,122,.12);
+    --on-accent: #04130a; --online: #3ddc84; --away: #f5c451; --dnd: #ff6b6b; --off: #555d59;
+    --side-w: 240px;
+    color-scheme: dark;
+    box-sizing: border-box;
+  }
+  *, *::before, *::after { box-sizing: inherit; }
+  html, body { height: 100%; margin: 0; }
+  body { font-family: "Inter", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; background: var(--bg); color: var(--text); font-size: 14px; }
+  button { font: inherit; color: inherit; background: none; border: 0; cursor: pointer; }
+  a { color: inherit; text-decoration: none; }
+  [hidden] { display: none !important; }
+  svg.i { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; flex: none; }
+  :focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+
+  .app { display: grid; grid-template-columns: var(--side-w) minmax(0,1fr); height: 100vh; transition: grid-template-columns .2s ease; }
+  .app[data-collapsed="true"] { --side-w: 72px; }
+
+  /* ===================== SIDEBAR ===================== */
+  .side { background: var(--side); border-right: 1px solid var(--line); display: flex; flex-direction: column; min-height: 0; min-width: 0; overflow: hidden; }
+
+  .head { height: 64px; flex: none; display: flex; align-items: center; justify-content: space-between; padding: 0 12px 0 20px; }
+  .logo { width: 34px; height: 34px; flex: none; }
+  .collapse { width: 32px; height: 32px; border-radius: 8px; display: grid; place-items: center; color: var(--muted); }
+  .collapse:hover { background: var(--card-2); color: var(--text); }
+  .collapse svg { width: 18px; height: 18px; transition: transform .2s; }
+  .app[data-collapsed="true"] .head { flex-direction: column; justify-content: center; gap: 4px; padding: 0; }
+  .app[data-collapsed="true"] .collapse svg { transform: rotate(180deg); }
+  .app[data-collapsed="true"] .head { height: 84px; }
+
+  .nav { padding: 4px 12px; display: grid; gap: 2px; }
+  .nv { position: relative; display: flex; align-items: center; gap: 12px; height: 40px; padding: 0 12px; border-radius: 8px; color: var(--muted); font-weight: 500; white-space: nowrap; transition: background .15s, color .15s; }
+  .nv:hover { background: var(--card-2); color: var(--text); }
+  .nv[aria-current="page"] { background: var(--accent-soft); color: var(--text); }
+  .nv[aria-current="page"] svg { color: var(--accent); }
+  .nv[aria-current="page"]::before, .sv[aria-current="true"]::before { content: ""; position: absolute; left: -12px; top: 9px; bottom: 9px; width: 3px; border-radius: 0 3px 3px 0; background: var(--accent); }
+  .nv .badge { margin-left: auto; min-width: 20px; height: 20px; padding: 0 6px; border-radius: 10px; background: var(--accent); color: var(--on-accent); font-size: 11px; font-weight: 800; display: grid; place-items: center; }
+  .nv .badge.quiet { background: var(--card-2); color: var(--muted); }
+  .gap { height: 12px; }
+
+  .group { margin: 20px 24px 8px; font-size: 12px; font-weight: 600; color: var(--muted); display: flex; align-items: center; justify-content: space-between; white-space: nowrap; }
+  .group button { width: 24px; height: 24px; border-radius: 6px; display: grid; place-items: center; color: var(--muted); }
+  .group button:hover { background: var(--card-2); color: var(--text); }
+  .group svg { width: 16px; height: 16px; }
+
+  .servers { padding: 0 12px; display: grid; gap: 2px; overflow-y: auto; min-height: 0; }
+  .sv { position: relative; display: flex; align-items: center; gap: 10px; padding: 6px 12px; border-radius: 8px; text-align: left; width: 100%; transition: background .15s; }
+  .sv:hover { background: var(--card-2); }
+  .sv[aria-current="true"] { background: var(--accent-soft); }
+  .sv .ic { position: relative; width: 36px; height: 36px; border-radius: 12px; background: #243029; color: var(--accent); display: grid; place-items: center; font-weight: 700; font-size: 13px; flex: none; transition: border-radius .15s; }
+  .sv:hover .ic { border-radius: 10px; }
+  .sv .pin { position: absolute; right: -4px; top: -4px; width: 14px; height: 14px; border-radius: 50%; background: var(--side); display: grid; place-items: center; color: var(--accent); }
+  .sv .pin svg { width: 10px; height: 10px; stroke-width: 2.4; }
+  .sv .t { min-width: 0; line-height: 1.3; }
+  .sv b { display: block; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .sv small { color: var(--muted); font-size: 12px; display: flex; align-items: center; gap: 5px; white-space: nowrap; }
+  .sv small i { width: 6px; height: 6px; border-radius: 50%; background: var(--online); }
+  .sv small.off i { background: #555d59; }
+  .sv.unread .ic::after { content: ""; position: absolute; left: -17px; top: 14px; width: 4px; height: 8px; border-radius: 0 4px 4px 0; background: var(--text); }
+  .none { margin: 0 24px; color: var(--muted); font-size: 13px; line-height: 1.5; }
+
+  /* Painel do usuário */
+  .me { margin-top: auto; flex: none; padding: 10px 12px; border-top: 1px solid var(--line); display: flex; align-items: center; gap: 4px; }
+  .who { flex: 1; min-width: 0; display: flex; align-items: center; gap: 10px; padding: 4px 6px; border-radius: 8px; text-align: left; }
+  .who:hover { background: var(--card-2); }
+  .av { position: relative; width: 36px; height: 36px; border-radius: 50%; display: grid; place-items: center; flex: none; font-weight: 700; font-size: 13px; background: #243029; color: var(--accent); }
+  .av .st { position: absolute; right: -2px; bottom: -2px; width: 10px; height: 10px; border-radius: 50%; border: 2px solid var(--side); box-sizing: content-box; background: var(--dnd); }
+  .who .t { min-width: 0; line-height: 1.25; }
+  .who b { display: block; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .who small { color: var(--muted); font-size: 12px; white-space: nowrap; }
+  .ctl { width: 32px; height: 32px; border-radius: 6px; display: grid; place-items: center; color: var(--muted); flex: none; position: relative; }
+  .ctl:hover { background: var(--card-2); color: var(--text); }
+  .ctl[aria-pressed="true"] { color: var(--dnd); }
+  .ctl svg { width: 18px; height: 18px; }
+
+  /* ---- Recolhida ---- */
+  .app[data-collapsed="true"] .label, .app[data-collapsed="true"] .nv .badge, .app[data-collapsed="true"] .sv .t,
+  .app[data-collapsed="true"] .group span, .app[data-collapsed="true"] .none, .app[data-collapsed="true"] .who .t,
+  .app[data-collapsed="true"] .ctl.extra { display: none; }
+  .app[data-collapsed="true"] .nv { justify-content: center; padding: 0; }
+  .app[data-collapsed="true"] .nv .dot { display: block; }
+  .app[data-collapsed="true"] .sv { justify-content: center; padding: 6px 0; }
+  .app[data-collapsed="true"] .group { justify-content: center; margin: 16px 0 8px; }
+  .app[data-collapsed="true"] .me { flex-direction: column; padding: 10px 0; }
+  .app[data-collapsed="true"] .who { flex: none; padding: 4px; }
+  .nv .dot { display: none; position: absolute; top: 8px; right: 10px; width: 9px; height: 9px; border-radius: 50%; background: var(--accent); border: 2px solid var(--side); box-sizing: content-box; }
+  .app[data-collapsed="true"] .nv.has .dot { display: block; }
+
+  /* Tooltips (só recolhida) */
+  .tip { position: fixed; z-index: 20; background: #050606; color: var(--text); font-size: 13px; font-weight: 600; padding: 6px 10px; border-radius: 6px; pointer-events: none; box-shadow: 0 6px 20px rgba(0,0,0,.5); white-space: nowrap; transform: translateY(-50%); }
+
+  /* ===================== Área de exemplo ===================== */
+  .main { display: grid; place-items: center; text-align: center; color: var(--muted); padding: 24px; }
+  .main h1 { margin: 0 0 6px; color: var(--text); font-size: 28px; letter-spacing: -.02em; }
+  .main p { margin: 0; }
+
+  @media (max-width: 900px) { .app:not([data-user-open="true"]) { --side-w: 72px; } }
+  @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <linearGradient id="g1" x1="15%" y1="85%" x2="65%" y2="15%"><stop offset="0" stop-color="#00DFA0"/><stop offset=".4" stop-color="#39FF88"/><stop offset="1" stop-color="#7EFFBD"/></linearGradient>
+    <linearGradient id="g2" x1="35%" y1="15%" x2="85%" y2="85%"><stop offset="0" stop-color="#00DFA0"/><stop offset=".45" stop-color="#00B377"/><stop offset="1" stop-color="#004B1F"/></linearGradient>
+    <linearGradient id="g3" x1="50%" y1="45%" x2="50%" y2="90%"><stop offset="0" stop-color="#007A40"/><stop offset=".5" stop-color="#003516"/><stop offset="1" stop-color="#001609"/></linearGradient>
+    <symbol id="home" viewBox="0 0 24 24"><path d="M3 11l9-8 9 8M5 10v10h5v-6h4v6h5V10"/></symbol>
+    <symbol id="users" viewBox="0 0 24 24"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c.5-3.5 3.2-5.5 6.5-5.5s6 2 6.5 5.5M16 4.5a3.5 3.5 0 010 7M18 14.8c2 .6 3.3 2.3 3.6 5"/></symbol>
+    <symbol id="user" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21c.6-4 3.7-6 8-6s7.4 2 8 6"/></symbol>
+    <symbol id="uplus" viewBox="0 0 24 24"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c.5-3.5 3.2-5.5 6.5-5.5s6 2 6.5 5.5M19 8v6M16 11h6"/></symbol>
+    <symbol id="chat" viewBox="0 0 24 24"><path d="M4 5h16v11H9l-5 4z"/></symbol>
+    <symbol id="server" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="7" rx="2"/><rect x="3" y="13" width="18" height="7" rx="2"/><path d="M7 7.5h.01M7 16.5h.01"/></symbol>
+    <symbol id="gear" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M5 5l2 2M17 17l2 2M19 5l-2 2M7 17l-2 2"/></symbol>
+    <symbol id="plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+    <symbol id="mic" viewBox="0 0 24 24"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0014 0M12 18v3"/></symbol>
+    <symbol id="micoff" viewBox="0 0 24 24"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0014 0M12 18v3M3 3l18 18"/></symbol>
+    <symbol id="head" viewBox="0 0 24 24"><path d="M4 15v-3a8 8 0 0116 0v3M4 15h4v5H5a1 1 0 01-1-1zM20 15h-4v5h3a1 1 0 001-1z"/></symbol>
+    <symbol id="headoff" viewBox="0 0 24 24"><path d="M4 15v-3a8 8 0 0116 0v3M4 15h4v5H5a1 1 0 01-1-1zM20 15h-4v5h3a1 1 0 001-1zM3 3l18 18"/></symbol>
+    <symbol id="chev" viewBox="0 0 24 24"><path d="M15 6l-6 6 6 6"/></symbol>
+    <symbol id="pin" viewBox="0 0 24 24"><path d="M9 3h6l-1 6 3 3v2H7v-2l3-3zM12 14v7"/></symbol>
+  </defs>
+</svg>
+
+<div class="app" id="app" data-collapsed="false">
+  <aside class="side" aria-label="Navegação principal">
+    <div class="head">
+      <svg class="logo" viewBox="0 0 100 100" fill="none" aria-label="Alura">
+        <path d="M26 73C34 60 41 53 50 53C59 53 66 60 74 73C66 64 58 59 50 59C42 59 34 64 26 73Z" fill="url(#g3)"/>
+        <path d="M50 14C55 14 59 18 61 22L83 67C87 75 80 83 73 81C69 80 66 77 64 72L51 44C50 42 49 32 50 14Z" fill="url(#g2)"/>
+        <path d="M50 14C44 14 40 18 38 22L17 67C13 75 20 83 27 81C31 80 34 77 36 72L49 44C51 40 52 30 55 22C54 16 52 14 50 14Z" fill="url(#g1)"/>
+      </svg>
+      <button class="collapse" id="collapse" aria-label="Recolher menu" aria-expanded="true"><svg class="i"><use href="#chev"/></svg></button>
+    </div>
+
+    <nav class="nav" id="nav" aria-label="Seções"></nav>
+
+    <div class="group"><span>Seus servidores</span><button id="add-server" aria-label="Criar servidor" data-tip="Criar servidor"><svg class="i"><use href="#plus"/></svg></button></div>
+    <div class="servers" id="servers"></div>
+
+    <div class="me">
+      <button class="who" id="who" data-tip="Continha · Não perturbe" aria-label="Abrir menu do perfil">
+        <span class="av">C<i class="st" id="st"></i></span>
+        <span class="t"><b>Continha</b><small>Não perturbe</small></span>
+      </button>
+      <button class="ctl" id="mic" aria-pressed="false" aria-label="Silenciar microfone" data-tip="Microfone"><svg class="i"><use href="#mic"/></svg></button>
+      <button class="ctl" id="head" aria-pressed="false" aria-label="Silenciar áudio" data-tip="Áudio"><svg class="i"><use href="#head"/></svg></button>
+      <button class="ctl extra" id="cfg" aria-label="Configurações" data-tip="Configurações"><svg class="i"><use href="#gear"/></svg></button>
+    </div>
+  </aside>
+
+  <main class="main"><div><h1 id="title">Início</h1><p>Área de conteúdo de exemplo. Teste o menu, os servidores e o botão de recolher.</p></div></main>
+</div>
+<div class="tip" id="tip" hidden></div>
+
+<script>
+  const $ = id => document.getElementById(id);
+  const ic = id => '<svg class="i"><use href="#' + id + '"/></svg>';
+
+  /* ---------- Dados: troque pelos reais ---------- */
+  const items = [
+    { id: 'inicio',       label: 'Início',       icon: 'home',  badge: 0 },
+    { id: 'amigos',       label: 'Amigos',       icon: 'users', badge: 0 },
+    { id: 'perfil',       label: 'Perfil',       icon: 'user',  badge: 0 },
+    { id: 'solicitacoes', label: 'Solicitações', icon: 'uplus', badge: 1 },
+    { id: 'mensagens',    label: 'Mensagens',    icon: 'chat',  badge: 3, quiet: true },
+    { gap: true },
+    { id: 'servidores',   label: 'Servidores',   icon: 'server', badge: 0 },
+    { id: 'config',       label: 'Configurações', icon: 'gear',  badge: 0 }
+  ];
+  const servers = [
+    { id: 's1', name: 'Teste',       online: 1, pinned: true,  unread: false },
+    { id: 's2', name: '!JAQUEZINHA', online: 0, pinned: false, unread: true }
+  ];
+  let page = 'inicio', server = null;
+
+  /* ---------- Menu ---------- */
+  function renderNav() {
+    const nav = $('nav'); nav.innerHTML = '';
+    items.forEach(it => {
+      if (it.gap) { const g = document.createElement('div'); g.className = 'gap'; nav.appendChild(g); return; }
+      const a = document.createElement('a'); a.className = 'nv' + (it.badge ? ' has' : ''); a.href = '#/' + it.id;
+      a.dataset.tip = it.label + (it.badge ? ' (' + it.badge + ')' : '');
+      if (!server && it.id === page) a.setAttribute('aria-current', 'page');
+      a.innerHTML = ic(it.icon) + '<span class="label"></span>' + (it.badge ? '<span class="badge' + (it.quiet ? ' quiet' : '') + '"></span><i class="dot"></i>' : '');
+      a.querySelector('.label').textContent = it.label;
+      if (it.badge) a.querySelector('.badge').textContent = it.badge > 99 ? '99+' : it.badge;
+      a.onclick = e => { e.preventDefault(); page = it.id; server = null; $('title').textContent = it.label; renderNav(); renderServers(); /* TODO: navegar */ };
+      nav.appendChild(a);
+    });
+  }
+
+  /* ---------- Servidores ---------- */
+  function renderServers() {
+    const box = $('servers'); box.innerHTML = '';
+    if (!servers.length) { box.innerHTML = '<p class="none">Você ainda não está em nenhum servidor.</p>'; return; }
+    [...servers].sort((a, b) => b.pinned - a.pinned).forEach(s => {
+      const b = document.createElement('button'); b.className = 'sv' + (s.unread ? ' unread' : ''); b.dataset.tip = s.name;
+      if (server === s.id) b.setAttribute('aria-current', 'true');
+      b.innerHTML = '<span class="ic"></span><span class="t"><b></b><small><i></i><span></span></small></span>';
+      b.querySelector('.ic').textContent = s.name.replace(/[^\p{L}\p{N}]/gu, '')[0].toUpperCase();
+      if (s.pinned) b.querySelector('.ic').insertAdjacentHTML('beforeend', '<span class="pin">' + ic('pin') + '</span>');
+      b.querySelector('b').textContent = s.name;
+      b.querySelector('small span').textContent = s.online ? s.online + ' online' : 'Ninguém online';
+      if (!s.online) b.querySelector('small').classList.add('off');
+      b.onclick = () => { server = s.id; s.unread = false; $('title').textContent = s.name; renderNav(); renderServers(); /* TODO: abrir servidor */ };
+      box.appendChild(b);
+    });
+  }
+  $('add-server').onclick = () => { /* TODO: criar servidor */ };
+  $('who').onclick = () => { /* TODO: abrir menu do perfil */ };
+  $('cfg').onclick = () => { page = 'config'; server = null; $('title').textContent = 'Configurações'; renderNav(); renderServers(); };
+
+  /* ---------- Microfone / áudio ---------- */
+  function toggle(btn, on, off, labels) {
+    btn.addEventListener('click', () => {
+      const p = btn.getAttribute('aria-pressed') !== 'true'; btn.setAttribute('aria-pressed', p);
+      btn.innerHTML = ic(p ? off : on); btn.setAttribute('aria-label', p ? labels[1] : labels[0]);
+      if (btn === $('head') && p && $('mic').getAttribute('aria-pressed') !== 'true') $('mic').click(); // sem áudio, sem microfone
+    });
+  }
+  toggle($('mic'), 'mic', 'micoff', ['Silenciar microfone', 'Ativar microfone']);
+  toggle($('head'), 'head', 'headoff', ['Silenciar áudio', 'Ativar áudio']);
+
+  /* ---------- Recolher ---------- */
+  const app = $('app'), col = $('collapse');
+  function setCollapsed(v, save) {
+    app.dataset.collapsed = v; col.setAttribute('aria-expanded', !v); col.setAttribute('aria-label', v ? 'Expandir menu' : 'Recolher menu');
+    if (save) try { localStorage.setItem('alura-side', v ? '1' : '0'); } catch (e) {}
+  }
+  col.onclick = () => setCollapsed(app.dataset.collapsed !== 'true', true);
+  try { if (localStorage.getItem('alura-side') === '1') setCollapsed(true); } catch (e) {}
+
+  /* ---------- Tooltips (só com a barra recolhida) ---------- */
+  const tip = $('tip');
+  document.addEventListener('mouseover', e => {
+    const t = e.target.closest('[data-tip]');
+    if (!t || app.dataset.collapsed !== 'true' && !t.matches('.ctl, #add-server')) return tip.hidden = true;
+    const r = t.getBoundingClientRect(); tip.textContent = t.dataset.tip; tip.hidden = false;
+    tip.style.left = (r.right + 10) + 'px'; tip.style.top = (r.top + r.height / 2) + 'px';
+  });
+  document.addEventListener('mouseout', e => { if (e.target.closest('[data-tip]')) tip.hidden = true; });
+
+  renderNav(); renderServers();
+</script>
+</body>
+</html>

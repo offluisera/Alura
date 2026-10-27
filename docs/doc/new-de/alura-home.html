@@ -1,0 +1,277 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Alura · Início</title>
+<style>
+  :root {
+    --bg: #0c0e0d;        /* fundo do app */
+    --field: #0f1211;     /* campos de entrada */
+    --side: #101312;      /* lateral e coluna direita */
+    --card: #161918;      /* superfícies */
+    --card-2: #1d2120;    /* hover / campos */
+    --line: #232826;      /* divisórias e bordas */
+
+    --text: #f2f5f3;      /* principal */
+    --muted: #8f9a95;     /* secundário */
+
+    --accent: #2dff7a;                    /* botões, links, item ativo */
+    --accent-soft: rgba(45,255,122,.12);  /* fundo suave */
+    --on-accent: #04130a;                 /* texto sobre verde */
+
+    --online: #3ddc84;
+    --away: #f5c451;
+    --dnd: #ff6b6b;
+    --off: #555d59;
+
+    color-scheme: dark;
+    box-sizing: border-box;
+  }
+  *, *::before, *::after { box-sizing: inherit; }
+  html, body { height: 100%; margin: 0; }
+  body { font-family: "Inter", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; background: var(--bg); color: var(--text); font-size: 14px; }
+  button { font: inherit; color: inherit; background: none; border: 0; cursor: pointer; }
+  a { color: inherit; text-decoration: none; }
+  svg.i { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; flex: none; }
+  :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+  .app { display: grid; grid-template-columns: 240px minmax(0,1fr) 300px; height: 100vh; }
+
+  /* ---------- Lateral ---------- */
+  .side { background: var(--side); border-right: 1px solid var(--line); display: flex; flex-direction: column; min-height: 0; }
+  .logo { height: 64px; display: flex; align-items: center; padding: 0 20px; }
+  .logo svg { width: 34px; height: 34px; }
+  .nav { padding: 4px 12px; display: grid; gap: 2px; }
+  .nav a { position: relative; display: flex; align-items: center; gap: 12px; height: 40px; padding: 0 12px; border-radius: 8px; color: var(--muted); font-weight: 500; transition: background .15s, color .15s; }
+  .nav a:hover { background: var(--card-2); color: var(--text); }
+  .nav a[aria-current="page"] { background: var(--accent-soft); color: var(--text); }
+  .nav a[aria-current="page"] svg { color: var(--accent); }
+  .nav a[aria-current="page"]::before { content: ""; position: absolute; left: -12px; top: 9px; bottom: 9px; width: 3px; border-radius: 0 3px 3px 0; background: var(--accent); }
+  .nav .gap { height: 12px; }
+  .side h3 { margin: 20px 24px 8px; font-size: 12px; font-weight: 600; color: var(--muted); display: flex; justify-content: space-between; align-items: center; }
+  .side h3 button { color: var(--muted); display: grid; } .side h3 button:hover { color: var(--text); }
+  .srv { display: flex; align-items: center; gap: 10px; margin: 0 12px; padding: 6px 12px; border-radius: 8px; }
+  .srv:hover { background: var(--card-2); }
+  .srv b { font-weight: 600; display: block; font-size: 14px; }
+  .srv small { color: var(--muted); font-size: 12px; }
+  .me { margin-top: auto; padding: 10px 12px; border-top: 1px solid var(--line); display: flex; align-items: center; gap: 10px; }
+  .me .who { flex: 1; min-width: 0; line-height: 1.25; }
+  .me .who b { display: block; font-size: 14px; }
+  .me .who small { color: var(--muted); font-size: 12px; }
+  .me button { width: 32px; height: 32px; border-radius: 6px; display: grid; place-items: center; color: var(--muted); }
+  .me button:hover { background: var(--card-2); color: var(--text); }
+  .me svg.i { width: 18px; height: 18px; }
+
+  /* Avatares */
+  .av { position: relative; width: 36px; height: 36px; border-radius: 50%; display: grid; place-items: center; flex: none; font-weight: 700; font-size: 13px; background: #243029; color: var(--accent); }
+  .av.sq { border-radius: 12px; }
+  .av.lg { width: 40px; height: 40px; }
+  .av .st { position: absolute; right: -2px; bottom: -2px; width: 12px; height: 12px; border-radius: 50%; border: 3px solid var(--side); background: var(--online); box-sizing: content-box; width: 10px; height: 10px; border-width: 2px; }
+  .av .st.dnd { background: var(--dnd); }
+
+  /* ---------- Centro ---------- */
+  .main { display: flex; flex-direction: column; min-width: 0; min-height: 0; }
+  .top { height: 64px; display: flex; align-items: center; gap: 12px; padding: 0 24px; border-bottom: 1px solid var(--line); }
+  .search { flex: 1; max-width: 520px; position: relative; }
+  .search svg { position: absolute; left: 12px; top: 10px; width: 18px; height: 18px; color: var(--muted); }
+  .search input { width: 100%; height: 38px; border: 0; border-radius: 8px; background: var(--card); color: var(--text); font: inherit; padding: 0 44px 0 38px; }
+  .search input::placeholder { color: var(--muted); }
+  .search input:focus { outline: 2px solid var(--accent); background: var(--card-2); }
+  .search kbd { position: absolute; right: 10px; top: 8px; font: 600 11px/20px inherit; color: var(--muted); background: var(--card-2); border-radius: 4px; padding: 0 7px; }
+  .top .sp { flex: 1; }
+  .icon-btn { width: 38px; height: 38px; border-radius: 8px; display: grid; place-items: center; color: var(--muted); position: relative; }
+  .icon-btn:hover { background: var(--card); color: var(--text); }
+  .feed { flex: 1; overflow-y: auto; padding: 32px 24px 48px; }
+  .col { max-width: 680px; margin: 0 auto; display: grid; gap: 16px; }
+  .hello h1 { margin: 0 0 4px; font-size: 28px; letter-spacing: -.02em; }
+  .hello h1 span { color: var(--accent); }
+  .hello p { margin: 0; color: var(--muted); }
+
+  .stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+  .stat { background: var(--card); border-radius: 12px; padding: 12px 14px; display: flex; align-items: center; gap: 10px; transition: background .15s; }
+  .stat:hover { background: var(--card-2); }
+  .stat svg { color: var(--muted); }
+  .stat b { display: block; font-size: 18px; line-height: 1.1; }
+  .stat small { color: var(--muted); font-size: 12px; }
+  .stat.on svg, .stat.on b { color: var(--accent); }
+
+  .card { background: var(--card); border-radius: 12px; padding: 16px; }
+  .composer { display: flex; gap: 12px; }
+  .composer .body { flex: 1; min-width: 0; }
+  .composer input { width: 100%; height: 40px; background: var(--bg); border: 1px solid transparent; border-radius: 8px; color: var(--text); font: inherit; padding: 0 14px; }
+  .composer input::placeholder { color: var(--muted); }
+  .composer input:focus { outline: none; border-color: var(--accent); }
+  .tools { display: flex; align-items: center; gap: 2px; margin-top: 10px; }
+  .tools .icon-btn { width: 34px; height: 34px; }
+  .tools .icon-btn svg { width: 18px; height: 18px; }
+  .btn { height: 36px; padding: 0 18px; border-radius: 8px; background: var(--accent); color: var(--on-accent); font-weight: 700; margin-left: auto; transition: filter .15s; }
+  .btn:hover { filter: brightness(.92); }
+
+  .post header { display: flex; gap: 12px; align-items: center; }
+  .post header .meta { flex: 1; line-height: 1.3; }
+  .post header b { font-weight: 600; }
+  .post header small { color: var(--muted); }
+  .post p { margin: 12px 0 14px; line-height: 1.5; }
+  .actions { display: flex; gap: 4px; margin: 0 -8px; }
+  .actions button { display: flex; align-items: center; gap: 6px; height: 32px; padding: 0 10px; border-radius: 6px; color: var(--muted); }
+  .actions button:hover { background: var(--card-2); color: var(--text); }
+  .actions svg.i { width: 18px; height: 18px; }
+
+  /* ---------- Direita ---------- */
+  .right { background: var(--side); border-left: 1px solid var(--line); padding: 24px 16px; overflow-y: auto; display: grid; align-content: start; gap: 24px; }
+  .right h2 { margin: 0 4px 8px; font-size: 14px; font-weight: 700; display: flex; justify-content: space-between; align-items: center; }
+  .right h2 a { font-size: 13px; font-weight: 500; color: var(--accent); }
+  .right h2 a:hover { text-decoration: underline; }
+  .row { display: flex; align-items: center; gap: 10px; padding: 8px; border-radius: 10px; }
+  .row:hover { background: var(--card-2); }
+  .row .t { flex: 1; min-width: 0; line-height: 1.3; }
+  .row .t b { display: block; font-weight: 600; font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .row .t small { color: var(--muted); font-size: 12px; }
+  .join { height: 30px; padding: 0 12px; border-radius: 6px; background: var(--accent-soft); color: var(--accent); font-weight: 600; font-size: 13px; }
+  .join:hover { background: var(--accent); color: var(--on-accent); }
+
+  @media (max-width: 1180px) { .app { grid-template-columns: 240px minmax(0,1fr); } .right { display: none; } }
+  @media (max-width: 760px) {
+    .app { grid-template-columns: 72px minmax(0,1fr); }
+    .nav a span, .side h3, .srv > div, .me .who, .me button, .logo { font-size: 0; }
+    .nav a { justify-content: center; padding: 0; } .nav a span { display: none; } .nav a[aria-current="page"]::before { left: -12px; }
+    .side h3, .srv > div, .me .who, .me button { display: none; }
+    .srv { justify-content: center; padding: 6px 0; } .me { justify-content: center; } .logo { justify-content: center; padding: 0; }
+    .stats { grid-template-columns: repeat(2, 1fr); }
+    .top, .feed { padding-left: 16px; padding-right: 16px; }
+  }
+  @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <linearGradient id="g1" x1="15%" y1="85%" x2="65%" y2="15%"><stop offset="0" stop-color="#00DFA0"/><stop offset=".4" stop-color="#39FF88"/><stop offset="1" stop-color="#7EFFBD"/></linearGradient>
+    <linearGradient id="g2" x1="35%" y1="15%" x2="85%" y2="85%"><stop offset="0" stop-color="#00DFA0"/><stop offset=".45" stop-color="#00B377"/><stop offset="1" stop-color="#004B1F"/></linearGradient>
+    <linearGradient id="g3" x1="50%" y1="45%" x2="50%" y2="90%"><stop offset="0" stop-color="#007A40"/><stop offset=".5" stop-color="#003516"/><stop offset="1" stop-color="#001609"/></linearGradient>
+    <symbol id="home" viewBox="0 0 24 24"><path d="M3 11l9-8 9 8M5 10v10h5v-6h4v6h5V10"/></symbol>
+    <symbol id="users" viewBox="0 0 24 24"><circle cx="9" cy="8" r="3.5"/><path d="M2.500 20c.5-3.500 3.200-5.500 6.500-5.500s6 2 6.500 5.500M16 4.500a3.500 3.500 0 010 7M18 14.800c2 .6 3.300 2.300 3.600 5"/></symbol>
+    <symbol id="user" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21c.6-4 3.700-6 8-6s7.400 2 8 6"/></symbol>
+    <symbol id="uplus" viewBox="0 0 24 24"><circle cx="9" cy="8" r="3.5"/><path d="M2.500 20c.5-3.500 3.200-5.500 6.500-5.500s6 2 6.500 5.500M19 8v6M16 11h6"/></symbol>
+    <symbol id="chat" viewBox="0 0 24 24"><path d="M4 5h16v11H9l-5 4z"/></symbol>
+    <symbol id="server" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="7" rx="2"/><rect x="3" y="13" width="18" height="7" rx="2"/><path d="M7 7.500h.01M7 16.500h.01"/></symbol>
+    <symbol id="gear" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M5 5l2 2M17 17l2 2M19 5l-2 2M7 17l-2 2"/></symbol>
+    <symbol id="search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/></symbol>
+    <symbol id="bell" viewBox="0 0 24 24"><path d="M6 17V11a6 6 0 0112 0v6l2 2H4zM10 21h4"/></symbol>
+    <symbol id="img" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="3"/><circle cx="9" cy="10" r="1.500"/><path d="M4 18l5-5 4 4 3-3 4 4"/></symbol>
+    <symbol id="clip" viewBox="0 0 24 24"><path d="M20 11l-8.500 8.500a5 5 0 01-7-7L13 4a3.500 3.500 0 015 5l-8.500 8.500a2 2 0 01-3-3L14 7"/></symbol>
+    <symbol id="smile" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M8 14c1 1.500 2.300 2 4 2s3-.5 4-2M9 9.500h.01M15 9.500h.01"/></symbol>
+    <symbol id="heart" viewBox="0 0 24 24"><path d="M12 20s-8-5-8-11a4.500 4.500 0 018-2.500A4.500 4.500 0 0120 9c0 6-8 11-8 11z"/></symbol>
+    <symbol id="comment" viewBox="0 0 24 24"><path d="M21 12a8 8 0 01-11.500 7.200L4 20l1-4.500A8 8 0 1121 12z"/></symbol>
+    <symbol id="share" viewBox="0 0 24 24"><circle cx="6" cy="12" r="2.500"/><circle cx="18" cy="6" r="2.500"/><circle cx="18" cy="18" r="2.500"/><path d="M8.300 10.800l7.400-3.600M8.300 13.200l7.400 3.600"/></symbol>
+    <symbol id="more" viewBox="0 0 24 24"><path d="M5 12h.01M12 12h.01M19 12h.01"/></symbol>
+    <symbol id="plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+    <symbol id="mic" viewBox="0 0 24 24"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0014 0M12 18v3"/></symbol>
+    <symbol id="head" viewBox="0 0 24 24"><path d="M4 15v-3a8 8 0 0116 0v3M4 15h4v5H5a1 1 0 01-1-1zM20 15h-4v5h3a1 1 0 001-1z"/></symbol>
+  </defs>
+</svg>
+
+<div class="app">
+  <aside class="side">
+    <div class="logo" aria-label="Alura">
+      <svg viewBox="0 0 100 100" fill="none" aria-hidden="true">
+        <path d="M26 73C34 60 41 53 50 53C59 53 66 60 74 73C66 64 58 59 50 59C42 59 34 64 26 73Z" fill="url(#g3)"/>
+        <path d="M50 14C55 14 59 18 61 22L83 67C87 75 80 83 73 81C69 80 66 77 64 72L51 44C50 42 49 32 50 14Z" fill="url(#g2)"/>
+        <path d="M50 14C44 14 40 18 38 22L17 67C13 75 20 83 27 81C31 80 34 77 36 72L49 44C51 40 52 30 55 22C54 16 52 14 50 14Z" fill="url(#g1)"/>
+      </svg>
+    </div>
+    <nav class="nav" aria-label="Principal">
+      <a href="#" aria-current="page"><svg class="i"><use href="#home"/></svg><span>Início</span></a>
+      <a href="#"><svg class="i"><use href="#users"/></svg><span>Amigos</span></a>
+      <a href="#"><svg class="i"><use href="#user"/></svg><span>Perfil</span></a>
+      <a href="#"><svg class="i"><use href="#uplus"/></svg><span>Solicitações</span></a>
+      <a href="#"><svg class="i"><use href="#chat"/></svg><span>Mensagens</span></a>
+      <div class="gap"></div>
+      <a href="#"><svg class="i"><use href="#server"/></svg><span>Servidores</span></a>
+      <a href="#"><svg class="i"><use href="#gear"/></svg><span>Configurações</span></a>
+    </nav>
+    <h3>Seus servidores <button aria-label="Criar servidor"><svg class="i" style="width:16px;height:16px"><use href="#plus"/></svg></button></h3>
+    <a class="srv" href="#"><span class="av sq">T</span><div><b>Teste</b><small>1 online</small></div></a>
+
+    <div class="me">
+      <span class="av">C<i class="st dnd"></i></span>
+      <div class="who"><b>Continha</b><small>Não perturbe</small></div>
+      <button aria-label="Microfone"><svg class="i"><use href="#mic"/></svg></button>
+      <button aria-label="Fones"><svg class="i"><use href="#head"/></svg></button>
+      <button aria-label="Ajustes"><svg class="i"><use href="#gear"/></svg></button>
+    </div>
+  </aside>
+
+  <section class="main">
+    <header class="top">
+      <label class="search">
+        <svg class="i"><use href="#search"/></svg>
+        <input type="search" placeholder="Buscar amigos, usuários, servidores">
+        <kbd>/</kbd>
+      </label>
+      <span class="sp"></span>
+      <button class="icon-btn" aria-label="Notificações"><svg class="i"><use href="#bell"/></svg></button>
+    </header>
+
+    <div class="feed">
+      <div class="col">
+        <div class="hello">
+          <h1>Olá, <span>ContA</span></h1>
+          <p>Que bom ter você por aqui.</p>
+        </div>
+
+        <div class="stats">
+          <a class="stat on" href="#"><svg class="i"><use href="#users"/></svg><div><b>2</b><small>Amigos</small></div></a>
+          <a class="stat" href="#"><svg class="i"><use href="#uplus"/></svg><div><b>0</b><small>Pedidos</small></div></a>
+          <a class="stat" href="#"><svg class="i"><use href="#chat"/></svg><div><b>0</b><small>Mensagens</small></div></a>
+          <a class="stat" href="#"><svg class="i"><use href="#bell"/></svg><div><b>0</b><small>Avisos</small></div></a>
+        </div>
+
+        <div class="card composer">
+          <span class="av lg">C</span>
+          <div class="body">
+            <input type="text" placeholder="No que você está pensando?">
+            <div class="tools">
+              <button class="icon-btn" aria-label="Imagem"><svg class="i"><use href="#img"/></svg></button>
+              <button class="icon-btn" aria-label="Anexo"><svg class="i"><use href="#clip"/></svg></button>
+              <button class="icon-btn" aria-label="Emoji"><svg class="i"><use href="#smile"/></svg></button>
+              <button class="btn">Publicar</button>
+            </div>
+          </div>
+        </div>
+
+        <article class="card post">
+          <header>
+            <span class="av lg">VC</span>
+            <div class="meta"><b>vinicius couto</b> <small>@V1na__ · 1d</small></div>
+            <button class="icon-btn" aria-label="Mais opções"><svg class="i"><use href="#more"/></svg></button>
+          </header>
+          <p>Visao louis</p>
+          <div class="actions">
+            <button><svg class="i"><use href="#heart"/></svg>0</button>
+            <button><svg class="i"><use href="#comment"/></svg>1</button>
+            <button aria-label="Compartilhar"><svg class="i"><use href="#share"/></svg></button>
+          </div>
+        </article>
+      </div>
+    </div>
+  </section>
+
+  <aside class="right">
+    <section>
+      <h2>Servidores <a href="#">Ver todos</a></h2>
+      <a class="row" href="#"><span class="av sq">T</span><div class="t"><b>Teste</b><small>4 membros</small></div></a>
+    </section>
+    <section>
+      <h2>Sugestões para você <a href="#">Ver todos</a></h2>
+      <div class="row"><span class="av sq">J</span><div class="t"><b>!JAQUEZINHA</b><small>5 membros</small></div><button class="join">Entrar</button></div>
+    </section>
+    <section>
+      <h2>Amigos online</h2>
+      <a class="row" href="#"><span class="av">V<i class="st"></i></span><div class="t"><b>vinicius couto</b><small>@V1na__</small></div></a>
+    </section>
+  </aside>
+</div>
+</body>
+</html>

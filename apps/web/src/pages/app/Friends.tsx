@@ -1,17 +1,16 @@
-import { useState, useEffect } from "react"
-import { Users, UserPlus, Check, X, Gamepad2, Mic, Code, Play } from "lucide-react"
+import { useState, useEffect, useMemo, useCallback } from "react"
+import { Users, Ban, Plus, Check } from "lucide-react"
 import { useOutletContext, useNavigate } from "react-router-dom"
-import { Avatar, AvatarFallback } from "@alura/ui"
 import { supabase } from "../../lib/supabase"
-import logoUrl from "../../../public/logo-sombra.png"
 import { AddFriendModal } from "../../components/friends/AddFriendModal"
 import { ConfirmModal } from "../../components/shared/ConfirmModal"
 import { FriendCard } from "../../components/friends/FriendCard"
-import { BlockService } from "../../lib/services/BlockService"
 import { BlockedCard } from "../../components/friends/BlockedCard"
-import { Ban } from "lucide-react"
-import { SpotifyIcon } from "../../components/shared/SpotifyActivityCard"
+import { BlockService } from "../../lib/services/BlockService"
 import { UserProfileHoverCard } from "../../components/shared/UserProfileHoverCard"
+import { usePresence, type UserStatusType } from "../../contexts/PresenceContext"
+import { useCall } from "../../contexts/CallContext"
+import { getUserSubtitle } from "../../lib/utils/userSubtitle"
 
 type TabType = 'todos' | 'online' | 'offline' | 'bloqueados'
 
@@ -29,6 +28,7 @@ interface FriendRelation {
   hobbies?: string[]
   status: 'pending' | 'accepted'
   profileStatus: 'online' | 'idle' | 'dnd' | 'offline'
+  activity_status_visible?: boolean
   isSender: boolean
   spotify_activity?: any
   show_spotify_activity?: boolean
@@ -37,6 +37,8 @@ interface FriendRelation {
 export function Friends() {
   const { user } = useOutletContext<{ user: any }>()
   const navigate = useNavigate()
+  const { getUserStatus } = usePresence()
+  const { startCallWithProfile } = useCall()
   
   const [activeTab, setActiveTab] = useState<TabType>('todos')
   const [isAddModalOpen, setIsAddModalOpen] = useState(false)
@@ -45,11 +47,30 @@ export function Friends() {
   const [loading, setLoading] = useState(true)
 
   // Estados de UI para Modais e Toasts
-  const [confirmModalConfig, setConfirmModalConfig] = useState<{isOpen: boolean, targetId: string | null, username: string | null, action: 'remove' | 'block'}>({ isOpen: false, targetId: null, username: null, action: 'remove' })
-  const [toast, setToast] = useState<{message: string, type: 'success' | 'error'} | null>(null)
+  const [confirmModalConfig, setConfirmModalConfig] = useState<{
+    isOpen: boolean
+    targetId: string | null
+    username: string | null
+    action: 'remove' | 'block'
+  }>({ isOpen: false, targetId: null, username: null, action: 'remove' })
 
-  const [pinnedFriends, setPinnedFriends] = useState<string[]>(() => JSON.parse(localStorage.getItem('alura_pinned_friends') || '[]'))
-  const [mutedFriends, setMutedFriends] = useState<string[]>(() => JSON.parse(localStorage.getItem('alura_muted_friends') || '[]'))
+  const [toast, setToast] = useState<{ message: string, type: 'success' | 'error' } | null>(null)
+
+  const [pinnedFriends, setPinnedFriends] = useState<string[]>(() => {
+    try {
+      return JSON.parse(localStorage.getItem('alura_pinned_friends') || '[]')
+    } catch {
+      return []
+    }
+  })
+
+  const [mutedFriends, setMutedFriends] = useState<string[]>(() => {
+    try {
+      return JSON.parse(localStorage.getItem('alura_muted_friends') || '[]')
+    } catch {
+      return []
+    }
+  })
 
   const showToast = (message: string, type: 'success' | 'error' = 'success') => {
     setToast({ message, type })
@@ -57,7 +78,7 @@ export function Friends() {
   }
 
   const togglePin = (userId: string, username: string) => {
-    let newPinned;
+    let newPinned: string[]
     if (pinnedFriends.includes(userId)) {
       newPinned = pinnedFriends.filter(id => id !== userId)
       showToast(`@${username} foi desfixado(a).`, 'success')
@@ -70,7 +91,7 @@ export function Friends() {
   }
 
   const toggleMute = (userId: string, username: string) => {
-    let newMuted;
+    let newMuted: string[]
     if (mutedFriends.includes(userId)) {
       newMuted = mutedFriends.filter(id => id !== userId)
       showToast(`Notificações de @${username} reativadas.`, 'success')
@@ -119,7 +140,10 @@ export function Friends() {
   async function fetchFriendsData() {
     if (!user) return
     setLoading(true)
-    const { data: rels } = await supabase.from('friendships').select('*').or(`user_id_1.eq.${user.id},user_id_2.eq.${user.id}`)
+    const { data: rels } = await supabase
+      .from('friendships')
+      .select('*')
+      .or(`user_id_1.eq.${user.id},user_id_2.eq.${user.id}`)
     
     if (rels) {
       if (rels.length === 0) {
@@ -136,9 +160,10 @@ export function Friends() {
         return {
            id: r.id, 
            otherUserId: otherId,
-           name: profile?.full_name || 'Usuário',
+           name: profile?.full_name || profile?.display_name || 'Usuário',
            username: profile?.username || 'usuario',
-           title: profile?.title || 'Cargo não informado',
+           title: getUserSubtitle(profile, 'Membro Alura'),
+           profile: profile,
            avatar_url: profile?.avatar_url,
            banner_url: profile?.banner_url,
            bio: profile?.bio,
@@ -148,14 +173,13 @@ export function Friends() {
            status: r.status,
            isSender: r.user_id_1 === user.id,
            profileStatus: profile?.activity_status_visible === false ? 'offline' : (profile?.status || 'offline'),
+           activity_status_visible: profile?.activity_status_visible,
            spotify_activity: profile?.spotify_activity,
            show_spotify_activity: profile?.show_spotify_activity
         }
       })
       
-      // Remove duplicatas caso haja inconsistência no banco (A->B e B->A)
       const uniqueList = Array.from(new Map(formattedList.map(item => [item.otherUserId, item])).values())
-      
       setRelations(uniqueList)
     }
     setLoading(false)
@@ -189,9 +213,9 @@ export function Friends() {
     try {
       await BlockService.blockUser(user.id, otherId)
       fetchBlocksData()
-      fetchFriendsData() // Atualiza a lista de amigos na hora para refletir a exclusão via trigger
+      fetchFriendsData()
     } catch (error) {
-      showToast("Erro ao bloquear. Você rodou as migrações?", "error")
+      showToast("Erro ao bloquear usuário.", "error")
     }
   }
   const handleUnblock = async (otherId: string) => {
@@ -200,296 +224,343 @@ export function Friends() {
       fetchBlocksData()
       fetchFriendsData()
     } catch (error) {
-      console.error("Erro ao desbloquear")
+      console.error("Erro ao desbloquear:", error)
     }
   }
 
+  const handleStartCall = (f: FriendRelation) => {
+    startCallWithProfile(
+      f.otherUserId,
+      {
+        id: f.otherUserId,
+        username: f.username,
+        display_name: f.name,
+        avatar_url: f.avatar_url,
+      },
+      'voice'
+    )
+  }
+
   // Filtros
-  const friends = relations.filter(r => r.status === 'accepted')
-  const requestsReceived = relations.filter(r => r.status === 'pending' && !r.isSender)
+  const friends = useMemo(() => relations.filter(r => r.status === 'accepted'), [relations])
+  const requestsReceived = useMemo(() => relations.filter(r => r.status === 'pending' && !r.isSender), [relations])
   
-  // Usando o status real do banco de dados (Realtime Presence / profiles)
-  const onlineFriends = friends.filter(f => f.profileStatus !== 'offline')
-  const offlineFriends = friends.filter(f => f.profileStatus === 'offline')
+  // Status efetivo baseado em presença em tempo real
+  const getFriendEffectiveStatus = useCallback((f: FriendRelation): UserStatusType => {
+    return getUserStatus({
+      id: f.otherUserId,
+      status: f.profileStatus,
+      activity_status_visible: f.activity_status_visible,
+    }, f.profileStatus)
+  }, [getUserStatus])
+
+  const onlineFriends = useMemo(() => {
+    return friends.filter(f => getFriendEffectiveStatus(f) !== 'offline')
+  }, [friends, getFriendEffectiveStatus])
+
+  const offlineFriends = useMemo(() => {
+    return friends.filter(f => getFriendEffectiveStatus(f) === 'offline')
+  }, [friends, getFriendEffectiveStatus])
 
   // Aplicando a aba ativa para a Coluna Principal
   let visibleFriends = friends
   if (activeTab === 'online') visibleFriends = onlineFriends
   if (activeTab === 'offline') visibleFriends = offlineFriends
 
-  // Order by pinned
   visibleFriends = [...visibleFriends].sort((a, b) => {
     const aPinned = pinnedFriends.includes(a.otherUserId) ? 1 : 0
     const bPinned = pinnedFriends.includes(b.otherUserId) ? 1 : 0
     return bPinned - aPinned
   })
 
+  const emptyMsgs: Record<TabType, [string, string]> = {
+    todos: ['Nenhum amigo ainda', 'Conecte-se e adicione amigos para conversar e compartilhar momentos.'],
+    online: ['Ninguém online', 'Seus amigos aparecem aqui quando estiverem conectados.'],
+    offline: ['Ninguém offline', 'Todos os seus amigos estão online no momento.'],
+    bloqueados: ['Nenhum bloqueado', 'Quem você bloquear aparece aqui.']
+  }
+
   return (
-    <div className="flex w-full h-full text-alura-textPrimary bg-alura-background">
+    <div className="amigos-page-root flex w-full h-full overflow-hidden">
       
-      {/* Coluna Principal (Esquerda) */}
-      <div className="flex-1 flex flex-col min-w-0 p-6 pr-0">
-        <div className="flex-1 flex flex-col border border-alura-border rounded-[16px] overflow-hidden bg-alura-surface1">
-          <div className="p-8 pb-4">
-            <div className="flex items-start justify-between mb-8">
+      {/* Coluna Central */}
+      <section className="flex flex-col flex-1 min-w-0 min-h-0">
+        <div className="amigos-page custom-scrollbar">
+          <div className="amigos-col">
+            
+            {/* Cabeçalho */}
+            <div className="amigos-head">
               <div>
-                <h1 className="text-[36px] font-bold text-alura-textPrimary leading-none mb-3">Amigos</h1>
-                <p className="text-alura-textMuted text-[15px]">Conecte-se, converse e construa grandes histórias juntos.</p>
+                <h1>Amigos</h1>
+                <p>Conecte-se, converse e construa grandes histórias juntos.</p>
               </div>
               <button 
+                type="button"
                 onClick={() => setIsAddModalOpen(true)}
-                className="h-10 px-4 bg-alura-accent text-[#0B0D0F] font-bold text-[14px] rounded-[8px] hover:bg-alura-accentBright transition-colors flex items-center gap-2 shrink-0"
+                className="amigos-btn"
               >
-                <PlusIcon className="w-4 h-4" />
-                Adicionar amigo
+                <Plus className="w-4 h-4 stroke-[2.4]" />
+                <span>Adicionar amigo</span>
               </button>
             </div>
 
-          {/* Filtros em formato de barra contínua */}
-          <div className="flex items-center gap-2 p-1.5 bg-alura-surface2 border border-alura-border rounded-[10px] w-fit mb-6">
-            <button 
-              onClick={() => setActiveTab('todos')}
-              className={`flex items-center gap-2 px-4 py-2 rounded-[6px] text-[14px] font-medium transition-all ${activeTab === 'todos' ? 'bg-alura-accent text-[#0B0D0F]' : 'text-alura-textMuted hover:text-white'}`}
-            >
-              <Users className="w-4 h-4" />
-              Todos
-            </button>
-            <button 
-              onClick={() => setActiveTab('online')}
-              className={`flex items-center gap-2 px-4 py-2 rounded-[6px] text-[14px] font-medium transition-all ${activeTab === 'online' ? 'bg-alura-selected text-alura-accent' : 'text-alura-textMuted hover:text-white'}`}
-            >
-              <div className={`w-2 h-2 rounded-full ${activeTab === 'online' ? 'bg-alura-accent' : 'border border-alura-border'}`} />
-              Online
-              <span className="text-[11px] ml-1">{onlineFriends.length}</span>
-            </button>
-            <button 
-              onClick={() => setActiveTab('offline')}
-              className={`flex items-center gap-2 px-4 py-2 rounded-[6px] text-[14px] font-medium transition-all ${activeTab === 'offline' ? 'bg-alura-hover text-alura-textPrimary' : 'text-alura-textMuted hover:text-white'}`}
-            >
-              <div className={`w-2 h-2 rounded-full ${activeTab === 'offline' ? 'bg-alura-textPrimary' : 'border border-alura-border'}`} />
-              Offline
-              <span className="text-[11px] ml-1">{offlineFriends.length}</span>
-            </button>
-            <div className="w-px h-6 bg-alura-border mx-2"></div>
-            <button 
-              onClick={() => setActiveTab('bloqueados')}
-              className={`flex items-center gap-2 px-4 py-2 rounded-[6px] text-[14px] font-medium transition-all ${activeTab === 'bloqueados' ? 'bg-alura-hover text-alura-danger' : 'text-alura-textMuted hover:text-alura-danger'}`}
-            >
-              <Ban className="w-4 h-4" />
-              Bloqueados
-              <span className="text-[11px] ml-1">{blockedUsers.length}</span>
-            </button>
+            {/* Abas */}
+            <div className="amigos-tabs" role="tablist">
+              <button 
+                type="button"
+                className="amigos-tab" 
+                role="tab" 
+                aria-selected={activeTab === 'todos'} 
+                onClick={() => setActiveTab('todos')}
+              >
+                <span>Todos</span>
+                <small>{friends.length}</small>
+              </button>
+              <button 
+                type="button"
+                className="amigos-tab" 
+                role="tab" 
+                aria-selected={activeTab === 'online'} 
+                onClick={() => setActiveTab('online')}
+              >
+                <span>Online</span>
+                <small>{onlineFriends.length}</small>
+              </button>
+              <button 
+                type="button"
+                className="amigos-tab" 
+                role="tab" 
+                aria-selected={activeTab === 'offline'} 
+                onClick={() => setActiveTab('offline')}
+              >
+                <span>Offline</span>
+                <small>{offlineFriends.length}</small>
+              </button>
+              <button 
+                type="button"
+                className="amigos-tab" 
+                role="tab" 
+                aria-selected={activeTab === 'bloqueados'} 
+                onClick={() => setActiveTab('bloqueados')}
+              >
+                <span>Bloqueados</span>
+                <small>{blockedUsers.length}</small>
+              </button>
+            </div>
+
+            {/* Lista Principal de Amigos */}
+            <div id="friends" className="flex flex-col gap-1">
+              {loading ? (
+                <div className="flex flex-col items-center justify-center py-20 text-[var(--amigos-muted)]">
+                  <div className="w-9 h-9 rounded-full border-2 border-[var(--amigos-line)] border-t-[var(--amigos-accent)] animate-spin" />
+                </div>
+              ) : activeTab === 'bloqueados' ? (
+                blockedUsers.length === 0 ? (
+                  <div className="amigos-empty">
+                    <Ban className="w-9 h-9 mx-auto mb-2.5 opacity-60 text-[var(--amigos-muted)]" />
+                    <b>{emptyMsgs.bloqueados[0]}</b>
+                    <span>{emptyMsgs.bloqueados[1]}</span>
+                  </div>
+                ) : (
+                  blockedUsers.map(u => (
+                    <BlockedCard 
+                      key={u.id}
+                      id={u.id}
+                      name={u.name}
+                      username={u.username}
+                      avatar_url={u.avatar_url}
+                      onUnblock={() => handleUnblock(u.id)}
+                    />
+                  ))
+                )
+              ) : visibleFriends.length === 0 ? (
+                <div className="amigos-empty">
+                  <Users className="w-9 h-9 mx-auto mb-2.5 opacity-60 text-[var(--amigos-muted)]" />
+                  <b>{emptyMsgs[activeTab][0]}</b>
+                  <span>{emptyMsgs[activeTab][1]}</span>
+                </div>
+              ) : (
+                visibleFriends.map(f => {
+                  const effectiveStatus = getFriendEffectiveStatus(f)
+                  return (
+                    <FriendCard 
+                      key={f.id}
+                      id={f.otherUserId}
+                      name={f.name}
+                      username={f.username}
+                      status={effectiveStatus}
+                      title={f.title}
+                      avatar_url={f.avatar_url}
+                      profile={{ ...f, id: f.otherUserId, status: effectiveStatus }}
+                      isPinned={pinnedFriends.includes(f.otherUserId)}
+                      isMuted={mutedFriends.includes(f.otherUserId)}
+                      spotify_activity={f.spotify_activity}
+                      show_spotify_activity={f.show_spotify_activity}
+                      onMessage={() => navigate(`/messages/${f.otherUserId}`)}
+                      onCall={() => handleStartCall(f)}
+                      onRemoveFriend={() => {
+                        setConfirmModalConfig({ isOpen: true, targetId: f.otherUserId, username: f.username, action: 'remove' })
+                      }}
+                      onBlock={() => {
+                        setConfirmModalConfig({ isOpen: true, targetId: f.otherUserId, username: f.username, action: 'block' })
+                      }}
+                      onPin={() => togglePin(f.otherUserId, f.username)}
+                      onMute={() => toggleMute(f.otherUserId, f.username)}
+                    />
+                  )
+                })
+              )}
+            </div>
+
           </div>
         </div>
+      </section>
 
-        {/* Lista de Amigos Principal */}
-        <div className="flex-1 overflow-y-auto px-8 pb-8 custom-scrollbar">
-          {loading ? (
-             <div className="flex flex-col items-center justify-center h-40 text-alura-textMuted">
-                <div className="w-10 h-10 rounded-full border-4 border-alura-border border-t-alura-accent animate-spin" />
-             </div>
-          ) : activeTab === 'bloqueados' ? (
-             blockedUsers.length === 0 ? (
-               <div className="flex flex-col items-center justify-center h-40 text-alura-textMuted border border-dashed border-alura-border rounded-[14px]">
-                  <p className="text-sm">Nenhum usuário bloqueado.</p>
-               </div>
-             ) : (
-               <div className="flex flex-col gap-2">
-                 {blockedUsers.map(u => (
-                   <BlockedCard 
-                     key={u.id}
-                     id={u.id}
-                     name={u.name}
-                     username={u.username}
-                     avatar_url={u.avatar_url}
-                     onUnblock={() => handleUnblock(u.id)}
-                   />
-                 ))}
-               </div>
-             )
-          ) : visibleFriends.length === 0 ? (
-             <div className="flex flex-col items-center justify-center h-40 text-alura-textMuted border border-dashed border-alura-border rounded-[14px]">
-                <p className="text-sm">Nenhum amigo encontrado nesta categoria.</p>
-             </div>
+      {/* Coluna Direita (Fiel ao alura-amigos.html) */}
+      <aside className="amigos-right custom-scrollbar">
+        
+        {/* Seção 1: Solicitações de amizade */}
+        <section>
+          <h2>
+            <span>
+              Solicitações de amizade
+              {requestsReceived.length > 0 && (
+                <span className="ml-1.5 text-[11px] bg-[var(--amigos-accent-soft)] text-[var(--amigos-accent)] px-2 py-0.5 rounded-full font-bold">
+                  {requestsReceived.length}
+                </span>
+              )}
+            </span>
+            <button 
+              type="button"
+              onClick={() => navigate('/requests')}
+              className="bg-transparent border-0 p-0 text-[13px] font-medium text-[var(--amigos-accent)] hover:underline cursor-pointer"
+            >
+              Ver todas
+            </button>
+          </h2>
+
+          {requestsReceived.length === 0 ? (
+            <p className="note">Nenhuma solicitação pendente.</p>
           ) : (
-            <div className="flex flex-col gap-2">
-              {visibleFriends.map(f => {
-                const isOnline = onlineFriends.some(o => o.id === f.id)
+            <div className="flex flex-col gap-1">
+              {requestsReceived.slice(0, 3).map(r => (
+                <div key={r.id} className="flex items-center justify-between p-2 rounded-[10px] hover:bg-[var(--amigos-card-2)] transition-colors">
+                  <div className="flex items-center gap-2.5 min-w-0">
+                    <div className="w-9 h-9 rounded-full bg-[#243029] text-[var(--amigos-accent)] font-bold text-[13px] flex items-center justify-center shrink-0 overflow-hidden aspect-square">
+                      {r.avatar_url ? (
+                        <img src={r.avatar_url} alt={r.name || r.username} className="w-full h-full aspect-square rounded-full object-cover shrink-0" />
+                      ) : (
+                        <span>{(r.name || r.username || "U").substring(0, 2).toUpperCase()}</span>
+                      )}
+                    </div>
+                    <div className="flex flex-col min-w-0">
+                      <b className="text-[13px] font-semibold text-[var(--amigos-text)] truncate max-w-[90px]">@{r.username}</b>
+                      <span className="text-[11px] text-[var(--amigos-muted)]">Quer te adicionar</span>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    <button 
+                      type="button"
+                      onClick={() => handleAccept(r.otherUserId)}
+                      className="h-7 px-2.5 rounded-[6px] bg-[var(--amigos-accent)] text-[var(--amigos-on-accent)] text-[11px] font-bold hover:brightness-95 transition-all cursor-pointer"
+                    >
+                      Aceitar
+                    </button>
+                    <button 
+                      type="button"
+                      onClick={() => handleDecline(r.otherUserId)}
+                      className="h-7 px-2.5 rounded-[6px] bg-transparent border border-[var(--amigos-line)] text-[var(--amigos-muted)] hover:text-[var(--amigos-text)] hover:bg-[var(--amigos-card-2)] text-[11px] font-bold transition-all cursor-pointer"
+                    >
+                      Recusar
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </section>
+
+        {/* Seção 2: Amigos online */}
+        <section>
+          <h2>
+            <span>
+              Amigos online
+              {onlineFriends.length > 0 && (
+                <span className="ml-1.5 text-[11px] bg-[var(--amigos-accent-soft)] text-[var(--amigos-accent)] px-2 py-0.5 rounded-full font-bold">
+                  {onlineFriends.length}
+                </span>
+              )}
+            </span>
+            <button 
+              type="button"
+              onClick={() => setActiveTab('online')}
+              className="bg-transparent border-0 p-0 text-[13px] font-medium text-[var(--amigos-accent)] hover:underline cursor-pointer"
+            >
+              Ver todos
+            </button>
+          </h2>
+
+          {onlineFriends.length === 0 ? (
+            <p className="note">Ninguém online agora.</p>
+          ) : (
+            <div className="flex flex-col gap-1">
+              {onlineFriends.map((f) => {
+                const fStatus = getFriendEffectiveStatus(f)
+                const fStatusClass = fStatus === 'online' ? 'on' : fStatus === 'dnd' ? 'dnd' : fStatus === 'idle' ? 'away' : 'off'
                 return (
-                  <FriendCard 
-                    key={f.id}
-                    id={f.otherUserId}
-                    name={f.name}
-                    username={f.username}
-                    status={f.profileStatus}
-                    title={f.title}
-                    avatar_url={f.avatar_url}
-                    profile={f}
-                    isPinned={pinnedFriends.includes(f.otherUserId)}
-                    isMuted={mutedFriends.includes(f.otherUserId)}
-                    spotify_activity={f.spotify_activity}
-                    show_spotify_activity={f.show_spotify_activity}
-                    onMessage={() => navigate(`/messages/${f.otherUserId}`)}
-                    onRemoveFriend={() => {
-                       setConfirmModalConfig({ isOpen: true, targetId: f.otherUserId, username: f.username, action: 'remove' })
-                    }}
-                    onBlock={() => {
-                       setConfirmModalConfig({ isOpen: true, targetId: f.otherUserId, username: f.username, action: 'block' })
-                    }}
-                    onPin={() => togglePin(f.otherUserId, f.username)}
-                    onMute={() => toggleMute(f.otherUserId, f.username)}
-                  />
+                  <UserProfileHoverCard 
+                    key={f.id} 
+                    userId={f.otherUserId} 
+                    profile={{ ...f, id: f.otherUserId, status: fStatus }} 
+                    side="left" 
+                    className="w-full"
+                  >
+                    <div 
+                      className="amigos-row"
+                      onClick={() => navigate(`/messages/${f.otherUserId}`)}
+                    >
+                      <div className="av">
+                        <div className="w-full h-full rounded-full overflow-hidden flex items-center justify-center shrink-0">
+                          {f.avatar_url ? (
+                            <img src={f.avatar_url} alt={f.name || f.username} className="w-full h-full aspect-square rounded-full object-cover shrink-0" />
+                          ) : (
+                            <span>{f.name.substring(0, 2).toUpperCase()}</span>
+                          )}
+                        </div>
+                        <i className={`st ${fStatusClass}`} />
+                      </div>
+                      <div className="t">
+                        <b>@{f.username}</b>
+                        <small>
+                          {f.spotify_activity?.isPlaying && f.show_spotify_activity !== false ? (
+                            `Ouvindo ${f.spotify_activity.trackName}`
+                          ) : fStatus === 'dnd' ? (
+                            'Ocupado'
+                          ) : fStatus === 'idle' ? (
+                            'Ausente'
+                          ) : (
+                            'Online'
+                          )}
+                        </small>
+                      </div>
+                    </div>
+                  </UserProfileHoverCard>
                 )
               })}
             </div>
           )}
-        </div>
-        </div>
-      </div>
+        </section>
 
-      {/* Coluna Contextual (Direita - Sidebar) */}
-      <div className="w-[360px] bg-alura-background flex flex-col shrink-0 overflow-hidden relative border-l border-transparent">
-        <div className="flex-1 overflow-y-auto custom-scrollbar p-6 space-y-6">
-          
-          {/* Card: Solicitações de amizade */}
-          <div className="bg-alura-surface1 border border-alura-border rounded-[16px] overflow-hidden">
-             <div className="px-5 py-4 flex items-center justify-between border-b border-alura-border/50">
-                <div className="flex items-center gap-2">
-                   <h3 className="text-[14px] font-bold text-alura-textPrimary">Solicitações de amizade</h3>
-                   {requestsReceived.length > 0 && (
-                      <span className="bg-alura-selected text-alura-accent text-[11px] px-2 py-0.5 rounded-full font-bold">
-                        {requestsReceived.length}
-                      </span>
-                   )}
-                </div>
-                <button className="text-[12px] text-alura-accent hover:underline">Ver todas</button>
-             </div>
-             <div className="p-2">
-                {requestsReceived.length === 0 ? (
-                   <p className="text-[13px] text-alura-textMuted p-3 italic">Nenhuma solicitação pendente.</p>
-                ) : (
-                   <div className="flex flex-col gap-1">
-                      {requestsReceived.slice(0,3).map(r => (
-                         <div key={r.id} className="flex items-center justify-between p-3 rounded-[10px] hover:bg-alura-hover transition-colors">
-                            <div className="flex items-center gap-3">
-                               <Avatar className="w-10 h-10 border border-alura-border rounded-full">
-                                  {r.avatar_url ? (
-                                    <img src={r.avatar_url} className="w-full h-full object-cover rounded-full" />
-                                  ) : (
-                                    <AvatarFallback className="bg-alura-surface2 text-alura-textMuted text-xs font-bold">{r.name.substring(0,2).toUpperCase()}</AvatarFallback>
-                                  )}
-                               </Avatar>
-                               <div className="flex flex-col">
-                                  <span className="text-[13px] font-bold text-alura-textPrimary truncate max-w-[100px]">@{r.username}</span>
-                                  <span className="text-[11px] text-alura-textMuted">Quer te adicionar</span>
-                               </div>
-                            </div>
-                            <div className="flex items-center gap-2">
-                               <button onClick={() => handleAccept(r.otherUserId)} className="px-3 h-7 rounded-[6px] bg-alura-accent text-[#0B0D0F] text-[11px] font-bold hover:bg-alura-accentBright transition-colors">
-                                 Aceitar
-                               </button>
-                               <button onClick={() => handleDecline(r.otherUserId)} className="px-3 h-7 rounded-[6px] bg-transparent border border-alura-border text-alura-textMuted hover:text-white hover:bg-alura-hover text-[11px] font-bold transition-colors">
-                                 Recusar
-                               </button>
-                            </div>
-                         </div>
-                      ))}
-                   </div>
-                )}
-             </div>
-          </div>
+      </aside>
 
-          {/* Card: Amigos online */}
-          <div className="bg-alura-surface1 border border-alura-border rounded-[16px] overflow-hidden">
-             <div className="px-5 py-4 flex items-center justify-between border-b border-alura-border/50">
-                <div className="flex items-center gap-2">
-                   <h3 className="text-[14px] font-bold text-alura-textPrimary">Amigos online</h3>
-                   <span className="bg-alura-selected text-alura-accent text-[11px] px-2 py-0.5 rounded-full font-bold">
-                     {onlineFriends.length}
-                   </span>
-                </div>
-                <button className="text-[12px] text-alura-accent hover:underline">Ver todos</button>
-             </div>
-             <div className="p-2">
-                {onlineFriends.length === 0 ? (
-                   <p className="text-[13px] text-alura-textMuted p-3 italic">Ninguém online agora.</p>
-                ) : (
-                   <div className="flex flex-col gap-1">
-                      {onlineFriends.map((f) => (
-                         <UserProfileHoverCard key={f.id} userId={f.otherUserId} profile={f} side="left" className="w-full">
-                            <div className="flex items-center justify-between p-3 rounded-[10px] hover:bg-alura-hover transition-colors cursor-pointer" onClick={() => navigate(`/messages/${f.otherUserId}`)}>
-                               <div className="flex items-center gap-3">
-                                  <div className="relative">
-                                    <Avatar className="w-10 h-10 border border-alura-border rounded-full">
-                                        {f.avatar_url ? (
-                                          <img src={f.avatar_url} className="w-full h-full object-cover rounded-full" />
-                                        ) : (
-                                          <AvatarFallback className="bg-alura-surface2 text-alura-textMuted text-xs font-bold">{f.name.substring(0,2).toUpperCase()}</AvatarFallback>
-                                        )}
-                                    </Avatar>
-                                     <div className={`absolute bottom-0 right-0 w-3 h-3 rounded-full border-2 border-alura-surface1 ${
-                                       f.profileStatus === 'dnd' ? 'bg-alura-danger' : f.profileStatus === 'idle' ? 'bg-orange-400' : 'bg-alura-accent'
-                                     }`}></div>
-                                   </div>
-                                   <div className="flex flex-col min-w-0">
-                                      <span className="text-[13px] font-bold text-alura-textPrimary truncate max-w-[150px]">@{f.username}</span>
-                                      {f.spotify_activity?.isPlaying && f.show_spotify_activity !== false ? (
-                                        <div className="text-[11px] text-[#39FF88] truncate flex items-center gap-1.5 font-medium animate-in fade-in duration-200 max-w-[160px]" title={`Ouvindo ${f.spotify_activity.trackName} - ${f.spotify_activity.artistName}`}>
-                                          <SpotifyIcon className="w-2.5 h-2.5 shrink-0 text-[#1DB954]" />
-                                          <span className="truncate">Ouvindo {f.spotify_activity.trackName}</span>
-                                        </div>
-                                      ) : (
-                                        <span className="text-[11px] text-alura-textMuted">
-                                          {f.profileStatus === 'dnd' ? 'Não perturbe' : f.profileStatus === 'idle' ? 'Ausente' : 'Online'}
-                                        </span>
-                                      )}
-                                   </div>
-                               </div>
-                            </div>
-                         </UserProfileHoverCard>
-                      ))}
-                   </div>
-                )}
-             </div>
-          </div>
-          
-          {/* Card Descoberta */}
-           <div className="relative bg-alura-surface1 border border-alura-border rounded-[16px] overflow-hidden p-6 mt-4">
-              {/* Fundo Gradiente Temático */}
-              <div 
-                 className="absolute inset-0 z-0 opacity-40 transition-all duration-500"
-                 style={{ background: "var(--theme-hero-bg)" }}
-              ></div>
-             {/* Efeito Visual (Mocking the green waves if background image fails) */}
-             <div className="absolute bottom-0 right-0 w-40 h-40 bg-alura-accent opacity-10 blur-[80px] rounded-full pointer-events-none z-0"></div>
-             
-             <div className="relative z-10 flex flex-col items-start">
-               <div className="flex items-start gap-4 mb-3">
-                  <div className="w-8 h-8 flex items-center justify-center shrink-0">
-                    <img src={logoUrl} alt="Alura" className="w-8 h-8 object-contain transition-all duration-300" style={{ filter: "var(--theme-logo-filter)" }} />
-                  </div>
-                 <h4 className="text-[14px] font-bold text-alura-textPrimary leading-tight">Amizade torna tudo melhor.</h4>
-               </div>
-               <p className="text-[12px] text-alura-textMuted leading-relaxed mb-4 pl-12">
-                 Encontre pessoas que compartilham dos mesmos interesses que você.
-               </p>
-               <div className="w-full flex justify-end">
-                  <button className="w-8 h-8 rounded-full border border-alura-border hover:bg-alura-accent hover:text-[#0B0D0F] hover:border-alura-accent text-alura-textMuted flex items-center justify-center transition-all">
-                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14"></path><path d="M12 5l7 7-7 7"></path></svg>
-                  </button>
-               </div>
-             </div>
-          </div>
-
-        </div>
-      </div>
-
+      {/* Modal Adicionar Amigo */}
       <AddFriendModal 
         isOpen={isAddModalOpen} 
         onClose={() => setIsAddModalOpen(false)} 
         currentUser={user} 
       />
 
+      {/* Modal de Confirmação */}
       <ConfirmModal 
         isOpen={confirmModalConfig.isOpen}
         title={confirmModalConfig.action === 'remove' ? "Remover Amizade" : "Bloquear Usuário"}
@@ -500,36 +571,29 @@ export function Friends() {
         isDanger={true}
         onCancel={() => setConfirmModalConfig({ isOpen: false, targetId: null, username: null, action: 'remove' })}
         onConfirm={() => {
-           if(confirmModalConfig.targetId) {
-             if (confirmModalConfig.action === 'remove') {
-               handleRemove(confirmModalConfig.targetId)
-               showToast(`@${confirmModalConfig.username} foi removido(a) da sua lista de amigos.`, 'success')
-             } else {
-               handleBlock(confirmModalConfig.targetId)
-               showToast(`@${confirmModalConfig.username} foi bloqueado(a).`, 'success')
-             }
-           }
-           setConfirmModalConfig({ isOpen: false, targetId: null, username: null, action: 'remove' })
+          if (confirmModalConfig.targetId) {
+            if (confirmModalConfig.action === 'remove') {
+              handleRemove(confirmModalConfig.targetId)
+              showToast(`@${confirmModalConfig.username} foi removido(a) da sua lista de amigos.`, 'success')
+            } else {
+              handleBlock(confirmModalConfig.targetId)
+              showToast(`@${confirmModalConfig.username} foi bloqueado(a).`, 'success')
+            }
+          }
+          setConfirmModalConfig({ isOpen: false, targetId: null, username: null, action: 'remove' })
         }}
       />
 
       {/* Custom Toast Simples */}
       {toast && (
         <div className="fixed bottom-8 left-1/2 -translate-x-1/2 z-[200] animate-in slide-in-from-bottom-5 fade-in duration-300">
-          <div className="bg-alura-surface2 border border-alura-border text-alura-textPrimary px-6 py-3 rounded-full shadow-[0_4px_24px_rgba(0,0,0,0.4)] flex items-center gap-3">
-            <Check className="w-4 h-4 text-alura-accent" />
-            <span className="text-[14px] font-medium">{toast.message}</span>
+          <div className="bg-[var(--amigos-card-2)] border border-[var(--amigos-line)] text-[var(--amigos-text)] px-5 py-2.5 rounded-full shadow-[0_8px_30px_rgba(0,0,0,0.5)] flex items-center gap-2.5">
+            <Check className="w-4 h-4 text-[var(--amigos-accent)]" />
+            <span className="text-[13px] font-semibold">{toast.message}</span>
           </div>
         </div>
       )}
-    </div>
-  )
-}
 
-function PlusIcon(props: any) {
-  return (
-    <svg {...props} width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M12 5v14M5 12h14"/>
-    </svg>
+    </div>
   )
 }

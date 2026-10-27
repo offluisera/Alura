@@ -1,4 +1,5 @@
 import React, { useRef, useEffect, useCallback } from 'react';
+import { Link } from 'react-router-dom';
 import anime from 'animejs';
 
 interface IconProps extends React.SVGAttributes<SVGElement> {
@@ -122,18 +123,41 @@ export const NavDropdown: React.FC<NavDropdownProps> = ({
         className="absolute top-full left-1/2 -translate-x-1/2 mt-2 min-w-[220px] rounded-2xl border border-white/10 bg-[#111318]/95 backdrop-blur-md p-2 shadow-xl z-50"
         style={{ display: 'none', opacity: 0, pointerEvents: 'none' }}
       >
-        {items.map((item) => (
-          <a
-            key={item.title}
-            href={item.href || '#'}
-            role="menuitem"
-            className="flex flex-col px-3 py-2 rounded-xl hover:bg-white/5 transition-colors"
-            onClick={() => setOpen(false)}
-          >
-            <span className="text-sm text-white">{item.title}</span>
-            <span className="text-xs text-white/50">{item.description}</span>
-          </a>
-        ))}
+        {items.map((item) => {
+          const isInternal = item.href && item.href.startsWith('/');
+          const content = (
+            <>
+              <span className="text-sm text-white group-hover:text-[var(--color-accent)] transition-colors">{item.title}</span>
+              <span className="text-xs text-white/50">{item.description}</span>
+            </>
+          );
+
+          if (isInternal) {
+            return (
+              <Link
+                key={item.title}
+                to={item.href!}
+                role="menuitem"
+                className="group flex flex-col px-3 py-2 rounded-xl hover:bg-white/5 transition-colors"
+                onClick={() => setOpen(false)}
+              >
+                {content}
+              </Link>
+            );
+          }
+
+          return (
+            <a
+              key={item.title}
+              href={item.href || '#'}
+              role="menuitem"
+              className="group flex flex-col px-3 py-2 rounded-xl hover:bg-white/5 transition-colors"
+              onClick={() => setOpen(false)}
+            >
+              {content}
+            </a>
+          );
+        })}
       </div>
     </div>
   );

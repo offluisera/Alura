@@ -15,10 +15,14 @@ import { AVAILABLE_TAGS } from "../onboarding/steps/StepProfile"
 import { PrivacyService } from "../../lib/services/PrivacyService"
 import { SpotifyActivityCard, SpotifyIcon } from "../../components/shared/SpotifyActivityCard"
 import { getActiveConnections, ConnectionIcon } from "../../components/shared/ConnectionIcons"
+import { usePresence } from "../../contexts/PresenceContext"
+import { ACHIEVEMENTS_CATALOG, isAchievementUnlocked } from "../../lib/constants/achievements"
+import { PostFeed } from "../../components/feed/PostFeed"
 
 export function Profile() {
   const { user, profile: myProfile } = useOutletContext<any>()
   const { targetUserId } = useParams<{ targetUserId?: string }>()
+  const { getUserStatus, isUserOnline } = usePresence()
   const navigate = useNavigate()
   const { showToast } = useNotification()
   
@@ -32,7 +36,7 @@ export function Profile() {
 
   const [profile, setProfile] = useState<any>(isOwnProfile ? myProfile : null)
   const [loading, setLoading] = useState(!isOwnProfile)
-  const [activeTab, setActiveTab] = useState<"Sobre" | "Jogos" | "Hobbies" | "Conquistas">("Sobre")
+  const [activeTab, setActiveTab] = useState<"Sobre" | "Publicações" | "Jogos" | "Hobbies" | "Conquistas">("Sobre")
   
   // Estatísticas reais
   const [realFriendsCount, setRealFriendsCount] = useState(0)
@@ -300,7 +304,8 @@ export function Profile() {
   })
 
   const isStatusPublic = isOwnProfile || profile?.activity_status_visible !== false
-  const effectiveStatus = isStatusPublic ? (profile?.status || 'offline') : 'offline'
+  const isOnline = isOwnProfile || (profile?.id ? isUserOnline(profile.id) : false)
+  const effectiveStatus = isStatusPublic && isOnline ? (profile?.status || 'online') : 'offline'
 
   const statusBgColor = effectiveStatus === 'dnd' ? 'bg-alura-danger' : 
                       effectiveStatus === 'idle' ? 'bg-[#F5A623]' : 
@@ -314,52 +319,18 @@ export function Profile() {
 
   const statusLabel = effectiveStatus === 'dnd' ? 'Não perturbe' : 
                       effectiveStatus === 'idle' ? 'Ausente' : 
-                      effectiveStatus === 'offline' ? 'Invisível' : 
+                      effectiveStatus === 'offline' ? (isOwnProfile ? 'Invisível' : 'Offline') : 
                       'Online'
 
-  // Conquistas com cálculo dinâmico de desbloqueio
-  const ACHIEVEMENTS = [
-    {
-      id: "founder",
-      title: "Membro Fundador",
-      desc: "Um dos pioneiros a construir a comunidade Alura.",
-      icon: Crown,
-      unlocked: true,
-      color: "text-[#F5A623] bg-[#F5A623]/10 border-[#F5A623]/30"
-    },
-    {
-      id: "beta",
-      title: "Beta Tester",
-      desc: "Participando ativamente da fase beta da plataforma.",
-      icon: Code,
-      unlocked: true,
-      color: "text-alura-accent bg-alura-accent/10 border-alura-accent/30"
-    },
-    {
-      id: "voice",
-      title: "Voz da Comunidade",
-      desc: "Publicou publicações ativas no feed social.",
-      icon: MessageSquare,
-      unlocked: realPostsCount > 0,
-      color: "text-[#4facfe] bg-[#4facfe]/10 border-[#4facfe]/30"
-    },
-    {
-      id: "social",
-      title: "Socializador",
-      desc: "Adicionou amigos e formou laços na comunidade.",
-      icon: Users,
-      unlocked: realFriendsCount > 0,
-      color: "text-[#43e97b] bg-[#43e97b]/10 border-[#43e97b]/30"
-    },
-    {
-      id: "legendary",
-      title: "Perfil Lendário",
-      desc: "Personalizou biografia, foto de perfil e jogos favoritos.",
-      icon: Sparkles,
-      unlocked: Boolean(profile?.bio && profile?.avatar_url && favoriteGames.length > 0),
-      color: "text-[#ff0844] bg-[#ff0844]/10 border-[#ff0844]/30"
-    }
-  ]
+  // Conquistas com catálogo expandido, desbloqueio pelo banco de dados ou critérios automáticos
+  const ACHIEVEMENTS = ACHIEVEMENTS_CATALOG.map((ach) => ({
+    ...ach,
+    unlocked: isAchievementUnlocked(ach.id, profile, {
+      friendsCount: realFriendsCount,
+      postsCount: realPostsCount,
+      serversCount: realServersCount
+    })
+  }))
 
   const unlockedCount = ACHIEVEMENTS.filter(a => a.unlocked).length
 
@@ -376,121 +347,174 @@ export function Profile() {
               {/* Top Banner & Info Section */}
               <div className="relative w-full rounded-2xl overflow-hidden border border-alura-border bg-alura-surface1 shadow-xl">
                 
-                {/* Banner Image */}
-                <div className="h-52 md:h-64 w-full relative">
-                  <img src={bannerUrl} alt="Banner" className="w-full h-full object-cover" />
-                  <div className="absolute inset-0 bg-gradient-to-t from-alura-surface1 via-black/20 to-transparent"></div>
+                {/* Banner Image (Cover) */}
+                <div className="h-48 sm:h-56 md:h-64 w-full relative bg-[#121615] overflow-hidden">
+                  {bannerUrl ? (
+                    <img 
+                      src={bannerUrl} 
+                      alt="Banner de capa" 
+                      className="w-full h-full object-cover object-center" 
+                    />
+                  ) : (
+                    <div 
+                      className="w-full h-full"
+                      style={{
+                        background: 'radial-gradient(420px 220px at 70% 20%, rgba(45,255,122,.28), transparent 70%), radial-gradient(300px 200px at 20% 90%, rgba(0,179,119,.18), transparent 70%), #121615'
+                      }}
+                    />
+                  )}
                   
                   {isOwnProfile && (
                     <button
+                      type="button"
                       onClick={() => navigate('/settings')}
-                      className="absolute top-4 right-4 flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-black/60 hover:bg-black/80 backdrop-blur-md text-white text-xs font-semibold border border-white/10 transition-colors"
+                      className="absolute top-3.5 right-3.5 h-8 px-3 rounded-lg bg-black/60 hover:bg-black/80 backdrop-blur-md text-white text-xs font-semibold border border-white/10 transition-colors flex items-center gap-1.5 cursor-pointer z-10"
+                      title="Alterar capa do perfil"
                     >
-                      <Edit className="w-3.5 h-3.5 text-alura-accent" /> Alterar capa
+                      <Edit className="w-3.5 h-3.5 text-alura-accent" />
+                      <span>Alterar capa</span>
                     </button>
                   )}
                 </div>
                 
-                {/* Profile Info Overlay */}
-                <div className="px-8 pb-8 relative -mt-16 flex flex-col md:flex-row items-end md:items-start justify-between gap-6">
+                {/* Linha 1: Avatar e Ações (.id no alura-perfil.html) */}
+                <div className="px-6 md:px-8 flex items-end justify-between gap-4 -mt-14 md:-mt-16 relative z-10">
                   
-                  <div className="flex flex-col md:flex-row items-center md:items-end gap-6 w-full md:w-auto">
-                    <div className="relative shrink-0">
-                      <Avatar className="w-32 h-32 md:w-36 md:h-36 border-4 border-alura-surface1 shadow-2xl">
-                        {avatarUrl ? (
-                          <img src={avatarUrl} className="w-full h-full object-cover rounded-full" />
-                        ) : (
-                          <AvatarFallback className="bg-alura-surface2 text-alura-accent text-4xl font-bold">{initials}</AvatarFallback>
-                        )}
-                      </Avatar>
-                      <div className={`absolute bottom-2 right-2 w-6 h-6 border-4 border-alura-surface1 rounded-full ${statusBgColor}`}></div>
+                  {/* Avatar circular perfeito com indicador de status */}
+                  <div className="relative shrink-0">
+                    <div className="w-28 h-28 md:w-32 md:h-32 rounded-full border-4 md:border-[5px] border-alura-surface1 bg-[#243029] shadow-2xl overflow-hidden aspect-square flex items-center justify-center">
+                      {avatarUrl ? (
+                        <img 
+                          src={avatarUrl} 
+                          alt={displayName} 
+                          className="w-full h-full aspect-square object-cover rounded-full shrink-0 block" 
+                        />
+                      ) : (
+                        <span className="text-alura-accent text-3xl md:text-4xl font-bold">{initials}</span>
+                      )}
                     </div>
-
-                    <div className="flex flex-col text-center md:text-left mb-1">
-                      <div className="flex items-center justify-center md:justify-start gap-2">
-                        <h1 className="text-2xl md:text-3xl font-bold text-white tracking-tight">{displayName}</h1>
-                        <div className="bg-alura-accent/20 text-alura-accent p-1 rounded-full"><Check className="w-3.5 h-3.5" /></div>
-                      </div>
-                      <span className="text-alura-textSecondary text-sm font-medium mt-0.5">{username}</span>
-                      
-                      <div className="flex items-center justify-center md:justify-start gap-2 mt-2">
-                        <div className={`w-2.5 h-2.5 rounded-full ${statusBgColor} ${profile?.status !== 'offline' ? 'animate-pulse' : ''}`}></div>
-                        <span className={`${statusTextColor} text-xs font-semibold`}>{statusLabel}</span>
-                      </div>
-                      
-                      <p className="mt-3 max-w-md text-alura-textPrimary text-sm leading-relaxed">
-                        {profile?.bio || "Nenhuma biografia definida ainda."}
-                      </p>
+                    {/* Status Badge */}
+                    <div 
+                      className={`absolute bottom-1 right-1 md:bottom-1.5 md:right-1.5 w-6 h-6 border-4 border-alura-surface1 rounded-full ${statusBgColor} flex items-center justify-center z-10 shadow-md`}
+                      title={statusLabel}
+                    >
+                      {effectiveStatus === 'dnd' && <div className="w-2.5 h-0.5 bg-white rounded-full" />}
                     </div>
                   </div>
 
-                  {/* Ações do Perfil */}
-                  <div className="flex gap-2.5 mb-2 shrink-0">
+                  {/* Ações do Perfil (.btns no alura-perfil.html) */}
+                  <div className="flex items-center gap-2.5 pb-2 shrink-0">
                     {isOwnProfile ? (
                       <>
                         <Button 
                           onClick={() => navigate('/settings')}
-                          className="flex items-center gap-2 bg-alura-accent text-[#0B0D0F] hover:bg-alura-accentHover font-bold text-xs h-10 px-5 rounded-xl shadow-[0_0_15px_rgba(57,255,136,0.2)]"
+                          className="flex items-center gap-2 bg-alura-accent text-[#04130a] hover:brightness-95 font-bold text-xs h-9 px-4 rounded-xl shadow-[0_0_15px_rgba(45,255,122,0.15)] cursor-pointer transition-all"
                         >
-                          <Edit className="w-4 h-4" /> Editar Perfil
+                          <Edit className="w-3.5 h-3.5" />
+                          <span>Editar Perfil</span>
                         </Button>
                         <Button 
                           onClick={handleShareProfile}
                           variant="outline"
-                          className="border-alura-border hover:border-alura-accent text-alura-textSecondary hover:text-white bg-alura-surface2/80 h-10 px-3.5 rounded-xl"
+                          className="border-alura-border hover:border-alura-accent/50 text-alura-textSecondary hover:text-white bg-alura-surface2/80 h-9 w-9 p-0 rounded-xl flex items-center justify-center cursor-pointer transition-all"
                           title="Compartilhar Perfil"
+                          aria-label="Compartilhar Perfil"
                         >
                           <Share2 className="w-4 h-4" />
-                          {copiedLink && <span className="text-[11px] text-alura-accent ml-1.5">Copiado!</span>}
                         </Button>
                       </>
                     ) : (
                       <>
                         <Button 
                           onClick={handleOpenDM}
-                          className="flex items-center gap-2 bg-alura-accent text-[#0B0D0F] hover:bg-alura-accentHover font-bold text-xs h-10 px-5 rounded-xl shadow-[0_0_15px_rgba(57,255,136,0.2)] cursor-pointer"
+                          className="flex items-center gap-2 bg-alura-accent text-[#04130a] hover:brightness-95 font-bold text-xs h-9 px-4 rounded-xl shadow-[0_0_15px_rgba(45,255,122,0.15)] cursor-pointer transition-all"
                         >
-                          <MessageSquare className="w-4 h-4" /> Enviar Mensagem
+                          <MessageSquare className="w-3.5 h-3.5" />
+                          <span>Enviar Mensagem</span>
                         </Button>
 
                         {friendshipStatus === "none" && (
                           <Button 
                             onClick={handleAddFriend}
                             variant="outline"
-                            className="border-alura-border hover:border-alura-accent text-alura-textSecondary hover:text-white bg-alura-surface2 h-10 px-4 rounded-xl text-xs font-semibold"
+                            className="border-alura-border hover:border-alura-accent/50 text-alura-textSecondary hover:text-white bg-alura-surface2/80 h-9 px-3.5 rounded-xl text-xs font-semibold cursor-pointer transition-all"
                           >
-                            <Plus className="w-4 h-4 mr-1.5" /> Adicionar Amigo
+                            <Plus className="w-3.5 h-3.5 mr-1" />
+                            <span>Adicionar Amigo</span>
                           </Button>
                         )}
                         {friendshipStatus === "pending" && (
-                          <span className="h-10 px-4 rounded-xl bg-alura-surface2 border border-alura-border text-alura-textMuted text-xs flex items-center font-medium">
+                          <span className="h-9 px-3.5 rounded-xl bg-alura-surface2 border border-alura-border text-alura-textMuted text-xs flex items-center font-medium">
                             Solicitação Enviada
                           </span>
                         )}
                         {friendshipStatus === "accepted" && (
-                          <span className="h-10 px-4 rounded-xl bg-alura-selected border border-alura-accent/30 text-alura-accent text-xs flex items-center font-bold">
-                            <Check className="w-3.5 h-3.5 mr-1" /> Amigos
+                          <span className="h-9 px-3.5 rounded-xl bg-alura-selected border border-alura-accent/30 text-alura-accent text-xs flex items-center font-bold">
+                            <Check className="w-3.5 h-3.5 mr-1" />
+                            <span>Amigos</span>
                           </span>
                         )}
+
+                        <Button 
+                          onClick={handleShareProfile}
+                          variant="outline"
+                          className="border-alura-border hover:border-alura-accent/50 text-alura-textSecondary hover:text-white bg-alura-surface2/80 h-9 w-9 p-0 rounded-xl flex items-center justify-center cursor-pointer transition-all"
+                          title="Compartilhar Perfil"
+                          aria-label="Compartilhar Perfil"
+                        >
+                          <Share2 className="w-4 h-4" />
+                        </Button>
                       </>
                     )}
                   </div>
 
                 </div>
 
+                {/* Linha 2: Informações do Usuário (.info no alura-perfil.html) */}
+                <div className="px-6 md:px-8 pt-3 pb-6 flex flex-col">
+                  <div className="flex items-center gap-2">
+                    <h1 className="text-2xl md:text-3xl font-bold text-white tracking-tight">{displayName}</h1>
+                    <div className="w-5 h-5 rounded-full bg-alura-accent-soft text-alura-accent flex items-center justify-center shrink-0">
+                      <Check className="w-3 h-3 stroke-[2.5]" />
+                    </div>
+                  </div>
+                  
+                  <div className="flex items-center gap-2.5 mt-1 flex-wrap">
+                    <span className="text-alura-textMuted text-sm font-medium">{username}</span>
+                    <span className="text-alura-border">•</span>
+                    <span className="flex items-center gap-1.5 text-xs font-semibold">
+                      <span className={`w-2 h-2 rounded-full ${statusBgColor} ${effectiveStatus !== 'offline' ? 'animate-pulse' : ''}`} />
+                      <span className={statusTextColor}>{statusLabel}</span>
+                    </span>
+                  </div>
+                  
+                  {profile?.bio && (
+                    <p className="mt-3 text-sm text-alura-textPrimary leading-relaxed max-w-2xl whitespace-pre-line">
+                      {profile.bio}
+                    </p>
+                  )}
+                </div>
+
                 {/* Navegação de Abas do Perfil */}
-                <div className="flex border-t border-alura-border/60 px-8 bg-alura-surface2/30">
-                  {(["Sobre", "Jogos", "Hobbies", "Conquistas"] as const).map((tab) => (
+                <div className="flex border-t border-alura-border px-6 md:px-8 bg-alura-surface1 overflow-x-auto custom-scrollbar">
+                  {(["Sobre", "Publicações", "Jogos", "Hobbies", "Conquistas"] as const).map((tab) => (
                     <button 
                       key={tab}
                       onClick={() => setActiveTab(tab)}
-                      className={`px-6 py-4 font-semibold text-sm transition-all border-b-2 cursor-pointer ${
+                      className={`h-11 px-4 font-semibold text-sm transition-all border-b-2 cursor-pointer whitespace-nowrap flex items-center gap-2 relative ${
                         activeTab === tab 
-                          ? 'text-alura-accent border-alura-accent bg-alura-accent/5 font-bold shadow-[inset_0_-2px_10px_rgba(57,255,136,0.1)]' 
-                          : 'text-alura-textSecondary border-transparent hover:text-white hover:bg-alura-surface1'
+                          ? 'text-white border-alura-accent font-bold' 
+                          : 'text-alura-textMuted border-transparent hover:text-white'
                       }`}
                     >
-                      {tab}
+                      <span>{tab}</span>
+                      {tab === "Publicações" && (
+                        <span className={`px-2 py-0.5 rounded-full text-[11px] font-bold ${
+                          activeTab === tab ? 'bg-alura-accent-soft text-alura-accent' : 'bg-alura-surface2 text-alura-textMuted'
+                        }`}>
+                          {realPostsCount}
+                        </span>
+                      )}
                     </button>
                   ))}
                 </div>
@@ -643,7 +667,43 @@ export function Profile() {
                 </div>
               )}
 
-              {/* ABA 2: JOGOS (GALERIA COMPLETA) */}
+              {/* ABA 2: PUBLICAÇÕES (FEED DO PERFIL) */}
+              {activeTab === "Publicações" && (
+                <div className="w-full space-y-6">
+                  <div className="p-6 rounded-2xl border border-alura-border bg-alura-surface1/90 backdrop-blur-sm">
+                    <div className="flex items-center justify-between mb-6 pb-4 border-b border-alura-border/50">
+                      <div className="flex items-center gap-2 text-alura-accent">
+                        <MessageSquare className="w-5 h-5" />
+                        <h2 className="font-semibold text-[16px]">
+                          {isOwnProfile ? "Suas Publicações" : `Publicações de ${displayName}`}
+                        </h2>
+                      </div>
+                      <span className="text-xs font-semibold text-alura-textMuted">
+                        {realPostsCount} {realPostsCount === 1 ? 'publicação' : 'publicações'}
+                      </span>
+                    </div>
+
+                    <PostFeed 
+                      user={user}
+                      profile={myProfile}
+                      filterUserId={profile?.id || (isOwnProfile ? user?.id : undefined)}
+                      hideComposer={!isOwnProfile}
+                      isProfileFeed={true}
+                      onPostCreated={() => {
+                        setRealPostsCount(prev => prev + 1)
+                        showToast({ 
+                          type: "success", 
+                          title: "Publicação compartilhada", 
+                          message: "Seu post foi publicado no seu perfil e no feed!" 
+                        })
+                      }}
+                      emptyMessage={isOwnProfile ? "Você ainda não fez nenhuma publicação." : `@${profile?.username || "usuario"} ainda não publicou nada.`}
+                    />
+                  </div>
+                </div>
+              )}
+
+              {/* ABA 3: JOGOS (GALERIA COMPLETA) */}
               {activeTab === "Jogos" && (
                 <div className="p-6 rounded-2xl border border-alura-border bg-alura-surface1/90 backdrop-blur-sm space-y-6">
                   <div className="flex items-center justify-between">

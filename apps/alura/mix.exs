@@ -32,7 +32,8 @@ defmodule Alura.MixProject do
       {:postgrex, ">= 0.0.0"},
       {:jason, "~> 1.4"},
       {:cors_plug, "~> 3.0"},
-      {:plug_cowboy, "~> 2.7"},
+      {:bandit, "~> 1.5"},
+      {:joken, "~> 2.6"},
       {:telemetry_metrics, "~> 1.0"},
       {:telemetry_poller, "~> 1.0"}
     ]
