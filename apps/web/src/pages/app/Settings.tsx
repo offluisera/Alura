@@ -354,6 +354,12 @@ export function Settings() {
   // Submenus de "Voz, Vídeo & Audio"
   const [activeAudioSubTab, setActiveAudioSubTab] = useState<"voz" | "transmissao" | "sons" | "soundboard" | "avancado">("voz")
 
+  // Submenus das seções de Configurações
+  const [activeNotifSubTab, setActiveNotifSubTab] = useState<"desktop" | "sons" | "simular">("desktop")
+  const [activeAppearanceSubTab, setActiveAppearanceSubTab] = useState<"temas" | "preview" | "densidade">("temas")
+  const [activeConnectionSubTab, setActiveConnectionSubTab] = useState<"spotify" | "redes">("spotify")
+  const [activeAdvancedSubTab, setActiveAdvancedSubTab] = useState<"gpu" | "dev" | "diagnostico" | "encerramento">("gpu")
+
   // Configurações de Transmissão (Vídeo / Screen Share)
   const [streamResolution, setStreamResolution] = useState<"720p" | "1080p" | "1440p" | "source">(() => {
     return (typeof window !== "undefined" && (localStorage.getItem("alura_stream_res") as any)) || "1080p"
@@ -1855,93 +1861,302 @@ export function Settings() {
 
   const initials = (displayName || "U").substring(0, 2).toUpperCase()
 
-  const SETTINGS_SECTIONS = [
-    { id: "perfil" as SectionId, label: "Perfil e identidade", icon: <User className="w-4 h-4" />, tab: "Conta" as TabType, subTab: "perfil" as const },
-    { id: "conta" as SectionId, label: "Dados da conta", icon: <Database className="w-4 h-4" />, tab: "Conta" as TabType, subTab: "dados" as const },
-    { id: "privacidade" as SectionId, label: "Privacidade e segurança", icon: <Lock className="w-4 h-4" />, tab: "Privacidade" as TabType },
-    { id: "notificacoes" as SectionId, label: "Notificações", icon: <Bell className="w-4 h-4" />, tab: "Notificações" as TabType },
-    { id: "aparencia" as SectionId, label: "Aparência", icon: <Palette className="w-4 h-4" />, tab: "Aparência" as TabType },
-    { id: "voz" as SectionId, label: "Voz, vídeo e áudio", icon: <Mic className="w-4 h-4" />, tab: "Som e Voz" as TabType },
-    { id: "conexoes" as SectionId, label: "Conexões", icon: <LinkIcon className="w-4 h-4" />, tab: "Conexões" as TabType },
-    { id: "avancado" as SectionId, label: "Avançado", icon: <Code className="w-4 h-4" />, tab: "Avançado" as TabType },
+  const NAV_ITEMS: { id: TabType; icon: React.ReactNode; label: string }[] = [
+    { id: "Conta", icon: <User className="w-4 h-4" />, label: "Minha Conta" },
+    { id: "Privacidade", icon: <Lock className="w-4 h-4" />, label: "Privacidade & Segurança" },
+    { id: "Notificações", icon: <Bell className="w-4 h-4" />, label: "Notificações" },
+    { id: "Aparência", icon: <Palette className="w-4 h-4" />, label: "Aparência" },
+    { id: "Som e Voz", icon: <Mic className="w-4 h-4" />, label: "Voz, Vídeo & Áudio" },
+    { id: "Conexões", icon: <LinkIcon className="w-4 h-4" />, label: "Conexões" },
+    { id: "Avançado", icon: <Code className="w-4 h-4" />, label: "Avançado" }
   ]
-
-  const handleSelectSection = (item: typeof SETTINGS_SECTIONS[number]) => {
-    setActiveSection(item.id)
-    setActiveTab(item.tab)
-    if (item.subTab) {
-      setActiveAccountSubTab(item.subTab)
-    }
-  }
 
   return (
     <div className="flex-1 overflow-hidden flex flex-col bg-alura-background relative">
 
-      {/* Barra de Título Superior de Configurações - alura-configuracoes.html */}
-      <header className="h-16 px-6 lg:px-8 border-b border-alura-border/60 flex items-center gap-3 shrink-0 bg-alura-navigation z-10">
-        <svg className="w-7 h-7 shrink-0" viewBox="0 0 100 100" fill="none" aria-label="Alura">
-          <defs>
-            <linearGradient id="g1" x1="15%" y1="85%" x2="65%" y2="15%"><stop offset="0" stopColor="var(--accent, #00DFA0)"/><stop offset=".4" stopColor="#39FF88"/><stop offset="1" stopColor="#7EFFBD"/></linearGradient>
-            <linearGradient id="g2" x1="35%" y1="15%" x2="85%" y2="85%"><stop offset="0" stopColor="var(--accent, #00DFA0)"/><stop offset=".45" stopColor="#00B377"/><stop offset="1" stopColor="#004B1F"/></linearGradient>
-            <linearGradient id="g3" x1="50%" y1="45%" x2="50%" y2="90%"><stop offset="0" stopColor="#007A40"/><stop offset=".5" stopColor="#003516"/><stop offset="1" stopColor="#001609"/></linearGradient>
-          </defs>
-          <path d="M26 73C34 60 41 53 50 53C59 53 66 60 74 73C66 64 58 59 50 59C42 59 34 64 26 73Z" fill="url(#g3)"/>
-          <path d="M50 14C55 14 59 18 61 22L83 67C87 75 80 83 73 81C69 80 66 77 64 72L51 44C50 42 49 32 50 14Z" fill="url(#g2)"/>
-          <path d="M50 14C44 14 40 18 38 22L17 67C13 75 20 83 27 81C31 80 34 77 36 72L49 44C51 40 52 30 55 22C54 16 52 14 50 14Z" fill="url(#g1)"/>
-        </svg>
-        <h1 className="text-[17px] font-bold text-alura-textPrimary tracking-tight">Configurações</h1>
-        <div className="flex-1" />
+      {/* Barra de Título Superior de Configurações com Botão ESC (Anexo 2) */}
+      <header className="h-16 px-6 lg:px-10 border-b border-alura-border/40 flex items-center justify-between shrink-0 bg-alura-surface1/60 backdrop-blur-md z-10">
+        <div className="flex items-center gap-3">
+          <div className="w-9 h-9 rounded-xl bg-alura-accent/15 border border-alura-accent/30 flex items-center justify-center text-alura-accent shadow-[0_0_12px_rgba(57,255,136,0.2)]">
+            <SettingsIcon className="w-5 h-5" />
+          </div>
+          <div>
+            <h1 className="text-lg font-bold text-white tracking-tight">Configurações do Usuário</h1>
+            <p className="text-[12px] text-alura-textSecondary">Gerencie sua identidade, privacidade e preferências da Alura.</p>
+          </div>
+        </div>
+
+        {/* Botão ESC estilo Discord / Modern Desktop */}
         <button
           onClick={() => navigate(-1)}
-          className="h-9 px-3.5 rounded-lg bg-alura-surface1 border border-alura-border/60 text-alura-textSecondary hover:text-alura-textPrimary hover:bg-alura-surface2 flex items-center gap-2 text-[13px] font-semibold transition-colors cursor-pointer"
+          className="flex items-center gap-2 px-3.5 py-1.5 rounded-xl border border-alura-border hover:border-alura-accent/50 text-alura-textSecondary hover:text-white bg-alura-surface2/60 hover:bg-alura-surface2 transition-all group cursor-pointer"
           title="Fechar configurações (ESC)"
         >
-          <span>Fechar</span>
-          <kbd className="font-mono text-[11px] leading-tight px-1.5 py-0.5 rounded bg-alura-surface2 text-alura-textMuted border border-alura-border/40">ESC</kbd>
+          <div className="w-5 h-5 rounded-full border border-alura-textSecondary group-hover:border-white flex items-center justify-center text-[10px] font-bold">
+            ✕
+          </div>
+          <span className="text-xs font-bold tracking-wider">ESC</span>
         </button>
       </header>
 
       {/* Conteúdo com Sidebar de Abas e Painel Central */}
-      <div className="flex flex-1 overflow-hidden w-full max-w-[1440px] mx-auto">
+      <div className="flex flex-1 overflow-hidden p-6 lg:p-8 gap-8 w-full max-w-[1440px] mx-auto">
 
-        {/* Sidebar de Configurações - alura-configuracoes.html */}
-        <div className="w-[260px] shrink-0 flex flex-col justify-between bg-alura-navigation border-r border-alura-border/60 p-4 overflow-y-auto">
+        {/* Sidebar de Configurações */}
+        <div className="w-[240px] shrink-0 flex flex-col justify-between">
           <div className="space-y-1">
             <span className="text-[11px] font-bold text-alura-textDisabled uppercase tracking-wider px-3 mb-2 block">
-              Configurações de usuário
+              Configurações de Usuário
             </span>
-            <nav className="flex flex-col space-y-1" aria-label="Seções">
-              {SETTINGS_SECTIONS.map(item => {
-                const isCurrent = activeSection === item.id
+            <nav className="flex flex-col space-y-1">
+              {NAV_ITEMS.map(item => {
+                const isActive = activeTab === item.id
                 return (
-                  <button
-                    key={item.id}
-                    onClick={() => handleSelectSection(item)}
-                    aria-current={isCurrent}
-                    className={`w-full relative flex items-center gap-3 h-10 px-3 rounded-lg text-[13px] font-medium transition-all text-left cursor-pointer ${
-                      isCurrent
-                        ? "bg-alura-accent/12 text-alura-textPrimary font-semibold before:content-[''] before:absolute before:-left-4 before:top-2 before:bottom-2 before:w-[3px] before:rounded-r-md before:bg-alura-accent"
-                        : "text-alura-textMuted hover:text-alura-textPrimary hover:bg-alura-surface2/60"
-                    }`}
-                  >
-                    <div className={isCurrent ? "text-alura-accent" : "text-alura-textMuted"}>
-                      {item.icon}
-                    </div>
-                    <span>{item.label}</span>
-                  </button>
+                  <div key={item.id} className="space-y-0.5">
+                    <button
+                      onClick={() => {
+                        setActiveTab(item.id)
+                        if (item.id === "Conta" && !activeAccountSubTab) setActiveAccountSubTab("perfil")
+                        if (item.id === "Privacidade" && !activePrivacySubTab) setActivePrivacySubTab("social")
+                        if (item.id === "Som e Voz" && !activeAudioSubTab) setActiveAudioSubTab("voz")
+                      }}
+                      className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-[13px] font-medium transition-all text-left cursor-pointer ${isActive
+                          ? 'bg-alura-selected text-alura-accent border border-alura-accent/30 shadow-[0_0_15px_rgba(57,255,136,0.12)] font-semibold'
+                          : 'text-alura-textSecondary hover:text-white hover:bg-alura-hover border border-transparent'
+                        }`}
+                    >
+                      <div className={isActive ? "text-alura-accent" : "text-alura-textMuted"}>
+                        {item.icon}
+                      </div>
+                      {item.label}
+                    </button>
+
+                    {/* Submenu Vertical estilo Discord para Minha Conta (Anexo 2) */}
+                    {item.id === "Conta" && isActive && (
+                      <div className="relative ml-5 pl-3.5 my-1.5 flex flex-col space-y-1 border-l-2 border-white/10 animate-in fade-in duration-200">
+                        {[
+                          { id: "perfil", label: "Perfil & Identidade" },
+                          { id: "spotify", label: "Spotify & Conexões" },
+                          { id: "dados", label: "Dados da Conta" },
+                        ].map((sub) => {
+                          const isSubActive = activeAccountSubTab === sub.id
+                          return (
+                            <button
+                              key={sub.id}
+                              onClick={() => setActiveAccountSubTab(sub.id as any)}
+                              className={`relative py-1 px-2.5 text-left text-[13px] transition-colors rounded-md cursor-pointer flex items-center ${isSubActive
+                                  ? "text-white font-semibold"
+                                  : "text-alura-textMuted hover:text-alura-textSecondary"
+                                }`}
+                            >
+                              {/* Barra indicadora vertical ativa sobreposta na linha guia (Anexo 2) */}
+                              {isSubActive && (
+                                <span className="absolute -left-[16px] top-1/2 -translate-y-1/2 w-[3px] h-4 bg-white rounded-full shadow-[0_0_6px_rgba(255,255,255,0.8)]" />
+                              )}
+                              {sub.label}
+                            </button>
+                          )
+                        })}
+                      </div>
+                    )}
+
+                    {/* Submenu Vertical estilo Discord para Privacidade */}
+                    {item.id === "Privacidade" && isActive && (
+                      <div className="relative ml-5 pl-3.5 my-1.5 flex flex-col space-y-1 border-l-2 border-white/10 animate-in fade-in duration-200">
+                        {[
+                          { id: "social", label: "Privacidade Social" },
+                          { id: "seguranca", label: "Senha e Segurança" },
+                          { id: "bloqueados", label: "Usuários Bloqueados" },
+                          { id: "dados", label: "Dados e Privacidade" },
+                        ].map((sub) => {
+                          const isSubActive = activePrivacySubTab === sub.id
+                          return (
+                            <button
+                              key={sub.id}
+                              onClick={() => setActivePrivacySubTab(sub.id as any)}
+                              className={`relative py-1 px-2.5 text-left text-[13px] transition-colors rounded-md cursor-pointer flex items-center ${isSubActive
+                                  ? "text-white font-semibold"
+                                  : "text-alura-textMuted hover:text-alura-textSecondary"
+                                }`}
+                            >
+                              {isSubActive && (
+                                <span className="absolute -left-[16px] top-1/2 -translate-y-1/2 w-[3px] h-4 bg-white rounded-full shadow-[0_0_6px_rgba(255,255,255,0.8)]" />
+                              )}
+                              {sub.label}
+                            </button>
+                          )
+                        })}
+                      </div>
+                    )}
+
+                    {/* Submenu Vertical estilo Discord para Notificações */}
+                    {item.id === "Notificações" && isActive && (
+                      <div className="relative ml-5 pl-3.5 my-1.5 flex flex-col space-y-1 border-l-2 border-white/10 animate-in fade-in duration-200">
+                        {[
+                          { id: "desktop", label: "Alertas no Computador", targetId: "notif-desktop" },
+                          { id: "sons", label: "Sons e Efeitos", targetId: "notif-sons" },
+                          { id: "simular", label: "Simular Notificação", targetId: "notif-simular" },
+                        ].map((sub) => {
+                          const isSubActive = activeNotifSubTab === sub.id
+                          return (
+                            <button
+                              key={sub.id}
+                              onClick={() => {
+                                setActiveNotifSubTab(sub.id as any)
+                                document.getElementById(sub.targetId)?.scrollIntoView({ behavior: "smooth", block: "start" })
+                              }}
+                              className={`relative py-1 px-2.5 text-left text-[13px] transition-colors rounded-md cursor-pointer flex items-center ${isSubActive
+                                  ? "text-white font-semibold"
+                                  : "text-alura-textMuted hover:text-alura-textSecondary"
+                                }`}
+                            >
+                              {isSubActive && (
+                                <span className="absolute -left-[16px] top-1/2 -translate-y-1/2 w-[3px] h-4 bg-white rounded-full shadow-[0_0_6px_rgba(255,255,255,0.8)]" />
+                              )}
+                              {sub.label}
+                            </button>
+                          )
+                        })}
+                      </div>
+                    )}
+
+                    {/* Submenu Vertical estilo Discord para Aparência */}
+                    {item.id === "Aparência" && isActive && (
+                      <div className="relative ml-5 pl-3.5 my-1.5 flex flex-col space-y-1 border-l-2 border-white/10 animate-in fade-in duration-200">
+                        {[
+                          { id: "temas", label: "Tema & Cores", targetId: "aparencia-temas" },
+                          { id: "preview", label: "Prévia em Tempo Real", targetId: "aparencia-preview" },
+                          { id: "densidade", label: "Densidade & Movimento", targetId: "aparencia-densidade" },
+                        ].map((sub) => {
+                          const isSubActive = activeAppearanceSubTab === sub.id
+                          return (
+                            <button
+                              key={sub.id}
+                              onClick={() => {
+                                setActiveAppearanceSubTab(sub.id as any)
+                                document.getElementById(sub.targetId)?.scrollIntoView({ behavior: "smooth", block: "start" })
+                              }}
+                              className={`relative py-1 px-2.5 text-left text-[13px] transition-colors rounded-md cursor-pointer flex items-center ${isSubActive
+                                  ? "text-white font-semibold"
+                                  : "text-alura-textMuted hover:text-alura-textSecondary"
+                                }`}
+                            >
+                              {isSubActive && (
+                                <span className="absolute -left-[16px] top-1/2 -translate-y-1/2 w-[3px] h-4 bg-white rounded-full shadow-[0_0_6px_rgba(255,255,255,0.8)]" />
+                              )}
+                              {sub.label}
+                            </button>
+                          )
+                        })}
+                      </div>
+                    )}
+
+                    {/* Submenu Vertical estilo Discord com linha guia e indicador ativo para Som e Voz */}
+                    {item.id === "Som e Voz" && isActive && (
+                      <div className="relative ml-5 pl-3.5 my-1.5 flex flex-col space-y-1 border-l-2 border-white/10 animate-in fade-in duration-200">
+                        {[
+                          { id: "voz", label: "Voz" },
+                          { id: "transmissao", label: "Transmissão" },
+                          { id: "sons", label: "Sons" },
+                          { id: "soundboard", label: "Painel de efeitos sonoros" },
+                          { id: "avancado", label: "Avançado" },
+                        ].map((sub) => {
+                          const isSubActive = activeAudioSubTab === sub.id
+                          return (
+                            <button
+                              key={sub.id}
+                              onClick={() => setActiveAudioSubTab(sub.id as any)}
+                              className={`relative py-1 px-2.5 text-left text-[13px] transition-colors rounded-md cursor-pointer flex items-center ${isSubActive
+                                  ? "text-white font-semibold"
+                                  : "text-alura-textMuted hover:text-alura-textSecondary"
+                                }`}
+                            >
+                              {/* Barra indicadora vertical ativa sobreposta na linha guia */}
+                              {isSubActive && (
+                                <span className="absolute -left-[16px] top-1/2 -translate-y-1/2 w-[3px] h-4 bg-white rounded-full shadow-[0_0_6px_rgba(255,255,255,0.8)]" />
+                              )}
+                              {sub.label}
+                            </button>
+                          )
+                        })}
+                      </div>
+                    )}
+
+                    {/* Submenu Vertical estilo Discord para Conexões */}
+                    {item.id === "Conexões" && isActive && (
+                      <div className="relative ml-5 pl-3.5 my-1.5 flex flex-col space-y-1 border-l-2 border-white/10 animate-in fade-in duration-200">
+                        {[
+                          { id: "spotify", label: "Spotify Connect", targetId: "conexoes-spotify" },
+                          { id: "redes", label: "Redes Sociais & Contas", targetId: "conexoes-redes" },
+                        ].map((sub) => {
+                          const isSubActive = activeConnectionSubTab === sub.id
+                          return (
+                            <button
+                              key={sub.id}
+                              onClick={() => {
+                                setActiveConnectionSubTab(sub.id as any)
+                                document.getElementById(sub.targetId)?.scrollIntoView({ behavior: "smooth", block: "start" })
+                              }}
+                              className={`relative py-1 px-2.5 text-left text-[13px] transition-colors rounded-md cursor-pointer flex items-center ${isSubActive
+                                  ? "text-white font-semibold"
+                                  : "text-alura-textMuted hover:text-alura-textSecondary"
+                                }`}
+                            >
+                              {isSubActive && (
+                                <span className="absolute -left-[16px] top-1/2 -translate-y-1/2 w-[3px] h-4 bg-white rounded-full shadow-[0_0_6px_rgba(255,255,255,0.8)]" />
+                              )}
+                              {sub.label}
+                            </button>
+                          )
+                        })}
+                      </div>
+                    )}
+
+                    {/* Submenu Vertical estilo Discord para Avançado */}
+                    {item.id === "Avançado" && isActive && (
+                      <div className="relative ml-5 pl-3.5 my-1.5 flex flex-col space-y-1 border-l-2 border-white/10 animate-in fade-in duration-200">
+                        {[
+                          { id: "gpu", label: "Aceleração GPU & Hardware", targetId: "avancado-gpu" },
+                          { id: "dev", label: "Modo Desenvolvedor", targetId: "avancado-dev" },
+                          { id: "diagnostico", label: "Diagnóstico & Versão", targetId: "avancado-diagnostico" },
+                          { id: "encerramento", label: "Zona de Encerramento", targetId: "avancado-encerramento" },
+                        ].map((sub) => {
+                          const isSubActive = activeAdvancedSubTab === sub.id
+                          return (
+                            <button
+                              key={sub.id}
+                              onClick={() => {
+                                setActiveAdvancedSubTab(sub.id as any)
+                                document.getElementById(sub.targetId)?.scrollIntoView({ behavior: "smooth", block: "start" })
+                              }}
+                              className={`relative py-1 px-2.5 text-left text-[13px] transition-colors rounded-md cursor-pointer flex items-center ${isSubActive
+                                  ? "text-white font-semibold"
+                                  : "text-alura-textMuted hover:text-alura-textSecondary"
+                                }`}
+                            >
+                              {isSubActive && (
+                                <span className="absolute -left-[16px] top-1/2 -translate-y-1/2 w-[3px] h-4 bg-white rounded-full shadow-[0_0_6px_rgba(255,255,255,0.8)]" />
+                              )}
+                              {sub.label}
+                            </button>
+                          )
+                        })}
+                      </div>
+                    )}
+                  </div>
                 )
               })}
             </nav>
           </div>
 
-          {/* Sair da Conta (Danger) */}
-          <div className="pt-3 border-t border-alura-border/50 mt-4">
+          {/* Botão de Logout Rápido com Confirmação Customizada */}
+          <div className="pt-4 border-t border-alura-border/40">
             <button
               onClick={handleLogoutClick}
-              className="w-full flex items-center gap-3 h-10 px-3 rounded-lg text-[13px] font-medium text-alura-danger/90 hover:text-alura-danger hover:bg-alura-danger/10 transition-colors text-left cursor-pointer"
+              className="w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-[13px] font-medium text-alura-danger/80 hover:text-alura-danger hover:bg-alura-danger/10 border border-transparent hover:border-alura-danger/20 transition-colors cursor-pointer"
             >
-              <LogOut className="w-4 h-4 text-alura-danger" />
-              <span>Sair da conta</span>
+              <LogOut className="w-4 h-4" />
+              Sair da Conta
             </button>
           </div>
         </div>
@@ -3574,7 +3789,7 @@ export function Settings() {
             <div className="max-w-3xl space-y-6 animate-in fade-in duration-200">
 
               {/* Card 1: Notificações do Sistema e Privacidade */}
-              <div className="rounded-2xl border border-alura-border bg-alura-surface1/90 p-6 space-y-6">
+              <div id="notif-desktop" className="rounded-2xl border border-alura-border bg-alura-surface1/90 p-6 space-y-6 scroll-mt-6">
                 <div>
                   <h2 className="text-[17px] font-bold text-white flex items-center gap-2">
                     <Bell className="w-5 h-5 text-alura-accent" />
@@ -3680,7 +3895,7 @@ export function Settings() {
               </div>
 
               {/* Card 2: Centralização de Sons */}
-              <div className="rounded-2xl border border-alura-border bg-alura-surface1/90 p-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div id="notif-sons" className="rounded-2xl border border-alura-border bg-alura-surface1/90 p-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4 scroll-mt-6">
                 <div className="flex items-center gap-3.5">
                   <div className="w-11 h-11 rounded-2xl bg-alura-accent/15 border border-alura-accent/30 flex items-center justify-center text-alura-accent shrink-0 shadow-[0_0_12px_rgba(57,255,136,0.15)]">
                     <Volume2 className="w-5 h-5" />
@@ -3704,7 +3919,7 @@ export function Settings() {
               </div>
 
               {/* Card 3: Teste de Notificação na Área de Trabalho */}
-              <div className="rounded-2xl border border-alura-border bg-alura-surface1/90 p-6 flex items-center justify-between">
+              <div id="notif-simular" className="rounded-2xl border border-alura-border bg-alura-surface1/90 p-6 flex items-center justify-between scroll-mt-6">
                 <div>
                   <h3 className="text-[15px] font-bold text-white">Simular Notificação de Desktop</h3>
                   <p className="text-[12px] text-alura-textMuted mt-0.5">Dispara um aviso visual do sistema para testar as permissões do navegador ou desktop.</p>
@@ -3725,7 +3940,7 @@ export function Settings() {
           {activeTab === "Aparência" && (
             <div className="max-w-3xl space-y-6">
 
-              <div className="rounded-2xl border border-alura-border bg-alura-surface1/90 p-6 space-y-7 shadow-lg">
+              <div id="aparencia-temas" className="rounded-2xl border border-alura-border bg-alura-surface1/90 p-6 space-y-7 shadow-lg scroll-mt-6">
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-alura-border/40 pb-4">
                   <div>
                     <h2 className="text-[18px] font-bold text-white flex items-center gap-2.5">
@@ -3859,7 +4074,7 @@ export function Settings() {
                 </div>
 
                 {/* Prévia Interativa em Tempo Real */}
-                <div className="pt-2">
+                <div id="aparencia-preview" className="pt-2 scroll-mt-6">
                   <div className="p-5 rounded-xl border border-alura-border bg-alura-surface2/60 space-y-4">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2">
@@ -3910,7 +4125,7 @@ export function Settings() {
                 </div>
 
                 {/* Densidade de Chat */}
-                <div className="pt-4 border-t border-alura-border/50">
+                <div id="aparencia-densidade" className="pt-4 border-t border-alura-border/50 scroll-mt-6">
                   <label className="text-[13px] font-semibold text-white block mb-3">Densidade das Mensagens</label>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div
@@ -5537,7 +5752,7 @@ export function Settings() {
             <div className="max-w-4xl space-y-6">
 
               {/* CARD PRINCIPAL SPOTIFY CONNECT (Identidade alura-configuracoes.html) */}
-              <div className="rounded-2xl border border-alura-border bg-alura-surface1/95 p-6 space-y-5 shadow-sm relative overflow-hidden">
+              <div id="conexoes-spotify" className="rounded-2xl border border-alura-border bg-alura-surface1/95 p-6 space-y-5 shadow-sm relative overflow-hidden scroll-mt-6">
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                   <div className="flex items-center gap-3.5">
                     <div className="w-12 h-12 rounded-2xl bg-[#1DB954]/15 border border-[#1DB954]/30 flex items-center justify-center text-[#1DB954] shadow-[0_0_20px_rgba(29,185,84,0.25)]">
@@ -5682,7 +5897,7 @@ export function Settings() {
                 )}
               </div>
 
-              <div className="rounded-2xl border border-alura-border bg-alura-surface1/90 p-6 space-y-6">
+              <div id="conexoes-redes" className="rounded-2xl border border-alura-border bg-alura-surface1/90 p-6 space-y-6 scroll-mt-6">
                 
                 {/* Header com Resumo de Status */}
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-alura-border/40 pb-5">
@@ -6004,7 +6219,7 @@ export function Settings() {
                 </div>
 
                 <div className="space-y-4">
-                  <div className="flex items-center justify-between p-4 rounded-xl bg-alura-surface2 border border-alura-border">
+                  <div id="avancado-gpu" className="flex items-center justify-between p-4 rounded-xl bg-alura-surface2 border border-alura-border scroll-mt-6">
                     <div>
                       <span className="text-[14px] font-semibold text-white block">Aceleração de Hardware GPU</span>
                       <span className="text-[12px] text-alura-textMuted">Melhora a taxa de quadros a 60 FPS nas transições e chamadas de vídeo.</span>
@@ -6014,7 +6229,7 @@ export function Settings() {
                     </span>
                   </div>
 
-                  <div className="flex items-center justify-between p-4 rounded-xl bg-alura-surface2 border border-alura-border">
+                  <div id="avancado-dev" className="flex items-center justify-between p-4 rounded-xl bg-alura-surface2 border border-alura-border scroll-mt-6">
                     <div>
                       <span className="text-[14px] font-semibold text-white block">Modo Desenvolvedor</span>
                       <span className="text-[12px] text-alura-textMuted">Permite copiar IDs de canais, mensagens e servidores no menu de contexto.</span>
@@ -6024,7 +6239,7 @@ export function Settings() {
                     </button>
                   </div>
 
-                  <div className="p-4 rounded-xl bg-alura-surface2 border border-alura-border space-y-2">
+                  <div id="avancado-diagnostico" className="p-4 rounded-xl bg-alura-surface2 border border-alura-border space-y-2 scroll-mt-6">
                     <div className="flex justify-between text-xs">
                       <span className="text-alura-textSecondary">Versão do Cliente:</span>
                       <span className="text-white font-mono font-bold">Alura v0.9.4 Beta</span>
@@ -6041,7 +6256,7 @@ export function Settings() {
                 </div>
 
                 {/* Zona de Perigo com Confirmação Customizada */}
-                <div className="pt-6 border-t border-alura-danger/30">
+                <div id="avancado-encerramento" className="pt-6 border-t border-alura-danger/30 scroll-mt-6">
                   <h3 className="text-sm font-bold text-alura-danger mb-1">Zona de Encerramento</h3>
                   <p className="text-xs text-alura-textMuted mb-4">Finalize sua sessão com segurança neste dispositivo.</p>
 
